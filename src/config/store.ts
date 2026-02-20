@@ -15,6 +15,7 @@ export interface DropboxTokens {
   refreshToken: string;
   expiresAt: number;
   appKey: string;
+  appSecret: string;
 }
 
 export interface AppConfig {

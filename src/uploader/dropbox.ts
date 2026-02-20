@@ -8,11 +8,13 @@ const BACKOFF_BASE_MS = 1000;
 async function refreshAccessToken(tokens: DropboxTokens): Promise<DropboxTokens> {
   const response = await fetch("https://api.dropboxapi.com/oauth2/token", {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${Buffer.from(`${tokens.appKey}:${tokens.appSecret}`).toString("base64")}`,
+    },
     body: new URLSearchParams({
       grant_type: "refresh_token",
       refresh_token: tokens.refreshToken,
-      client_id: tokens.appKey,
     }),
   });
 

@@ -1,23 +1,11 @@
-import { randomBytes, createHash } from "crypto";
 import * as readline from "readline";
 import { saveDropboxTokens } from "../config/store.js";
 import { UserError } from "../utils/errors.js";
 
-function generateCodeVerifier(): string {
-  return randomBytes(64).toString("hex").slice(0, 128);
-}
-
-function generateCodeChallenge(verifier: string): string {
-  const hash = createHash("sha256").update(verifier).digest("base64url");
-  return hash;
-}
-
-function buildAuthUrl(appKey: string, codeChallenge: string): string {
+function buildAuthUrl(appKey: string): string {
   const params = new URLSearchParams({
     client_id: appKey,
     response_type: "code",
-    code_challenge: codeChallenge,
-    code_challenge_method: "S256",
     token_access_type: "offline",
   });
   return `https://www.dropbox.com/oauth2/authorize?${params.toString()}`;
@@ -35,17 +23,18 @@ async function prompt(question: string): Promise<string> {
 
 async function exchangeCodeForTokens(
   appKey: string,
+  appSecret: string,
   code: string,
-  codeVerifier: string,
 ): Promise<{ access_token: string; refresh_token: string; expires_in: number }> {
   const response = await fetch("https://api.dropboxapi.com/oauth2/token", {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Authorization: `Basic ${Buffer.from(`${appKey}:${appSecret}`).toString("base64")}`,
+    },
     body: new URLSearchParams({
       code,
       grant_type: "authorization_code",
-      client_id: appKey,
-      code_verifier: codeVerifier,
     }),
   });
 
@@ -67,9 +56,12 @@ export async function auth(): Promise<void> {
     throw new UserError("App Key is required. Create one at https://www.dropbox.com/developers");
   }
 
-  const codeVerifier = generateCodeVerifier();
-  const codeChallenge = generateCodeChallenge(codeVerifier);
-  const authUrl = buildAuthUrl(appKey, codeChallenge);
+  const appSecret = await prompt("Enter your Dropbox App Secret: ");
+  if (!appSecret) {
+    throw new UserError("App Secret is required.");
+  }
+
+  const authUrl = buildAuthUrl(appKey);
 
   console.log("\nOpen this URL in your browser to authorize x2kobo:");
   console.log(authUrl);
@@ -81,16 +73,15 @@ export async function auth(): Promise<void> {
   }
 
   console.log("Exchanging code for tokens...");
-  const tokens = await exchangeCodeForTokens(appKey, authCode, codeVerifier);
+  const tokens = await exchangeCodeForTokens(appKey, appSecret, authCode);
 
   saveDropboxTokens({
     accessToken: tokens.access_token,
     refreshToken: tokens.refresh_token,
     expiresAt: Date.now() + tokens.expires_in * 1000,
     appKey,
+    appSecret,
   });
 
   console.log("Dropbox authorization successful! Tokens saved.");
 }
-
-export { generateCodeVerifier, generateCodeChallenge, buildAuthUrl };
