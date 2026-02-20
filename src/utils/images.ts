@@ -154,14 +154,33 @@ export async function downloadImages(html: string, context: BrowserContext): Pro
     img.remove();
   }
 
-  verbose(`Found ${totalFound} img tags, ${jobs.length} to download (concurrency: ${CONCURRENCY})`);
+  // Deduplicate jobs by URL — download each unique URL only once
+  const uniqueJobs: DownloadJob[] = [];
+  const seenUrls = new Map<string, DownloadJob[]>(); // url -> list of duplicate jobs
+  for (const job of jobs) {
+    const url = transformTwimgUrl(job.src);
+    const existing = seenUrls.get(url);
+    if (existing) {
+      existing.push(job);
+    } else {
+      seenUrls.set(url, []);
+      uniqueJobs.push(job);
+    }
+  }
+
+  const duplicateCount = jobs.length - uniqueJobs.length;
+  verbose(
+    `Found ${totalFound} img tags, ${jobs.length} to download` +
+      (duplicateCount > 0 ? ` (${duplicateCount} duplicates skipped)` : "") +
+      ` (concurrency: ${CONCURRENCY})`,
+  );
 
   // Download in parallel with concurrency limit
   const images: ImageAsset[] = [];
   const failedJobs: DownloadJob[] = [];
 
-  for (let i = 0; i < jobs.length; i += CONCURRENCY) {
-    const batch = jobs.slice(i, i + CONCURRENCY);
+  for (let i = 0; i < uniqueJobs.length; i += CONCURRENCY) {
+    const batch = uniqueJobs.slice(i, i + CONCURRENCY);
     const results = await Promise.all(batch.map((job) => downloadOne(job, context)));
 
     for (let j = 0; j < results.length; j++) {
@@ -169,9 +188,20 @@ export async function downloadImages(html: string, context: BrowserContext): Pro
       if (result) {
         images.push(result.asset);
         result.job.img.setAttribute("src", `images/${result.asset.filename}`);
+
+        // Point duplicate img tags to the same downloaded asset
+        const url = transformTwimgUrl(result.job.src);
+        for (const dup of seenUrls.get(url) || []) {
+          dup.img.setAttribute("src", `images/${result.asset.filename}`);
+        }
       } else {
         failedJobs.push(batch[j]);
         batch[j].img.remove();
+        // Also remove duplicate img tags for failed URLs
+        const url = transformTwimgUrl(batch[j].src);
+        for (const dup of seenUrls.get(url) || []) {
+          dup.img.remove();
+        }
       }
     }
   }

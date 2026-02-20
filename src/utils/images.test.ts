@@ -128,6 +128,29 @@ describe("downloadImages", () => {
     expect(result.images).toHaveLength(0);
   });
 
+  it("should deduplicate images with the same URL", async () => {
+    const html =
+      '<img src="https://a.com/same.jpg" /><img src="https://a.com/same.jpg" /><img src="https://a.com/other.jpg" />';
+    const responses = new Map([
+      ["https://a.com/same.jpg", { ok: true, body: JPEG_BUFFER, contentType: "image/jpeg" }],
+      ["https://a.com/other.jpg", { ok: true, body: JPEG_BUFFER, contentType: "image/jpeg" }],
+    ]);
+    const context = createMockContext(responses);
+
+    const result = await downloadImages(html, context as never);
+    // Only 2 unique images downloaded, not 3
+    expect(result.images).toHaveLength(2);
+    // The download function should only be called twice (once per unique URL)
+    expect(context.request.get).toHaveBeenCalledTimes(2);
+    // Both img tags with same URL should point to the same file (img-001)
+    // The third image (other.jpg) keeps its original index (img-003)
+    expect(result.html).toContain('src="images/img-001.jpg"');
+    expect(result.html).toContain('src="images/img-003.jpg"');
+    // Count occurrences of img-001 — should appear twice (the deduplicated ones)
+    const matches = result.html.match(/img-001\.jpg/g);
+    expect(matches).toHaveLength(2);
+  });
+
   it("should handle WebP images by attempting conversion", async () => {
     const html = '<img src="https://example.com/img.webp" />';
     const responses = new Map([
