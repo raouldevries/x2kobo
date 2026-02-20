@@ -6,6 +6,7 @@ import { login } from "./commands/login.js";
 import { auth } from "./commands/auth.js";
 import { convert } from "./commands/convert.js";
 import { status } from "./commands/status.js";
+import { serve } from "./commands/serve.js";
 
 const program = new Command();
 
@@ -26,7 +27,13 @@ program
   .action(
     async (
       url: string,
-      options: { upload: boolean; useChrome?: boolean; output?: string; verbose?: boolean; debug?: boolean },
+      options: {
+        upload: boolean;
+        useChrome?: boolean;
+        output?: string;
+        verbose?: boolean;
+        debug?: boolean;
+      },
     ) => {
       await convert(url, {
         noUpload: !options.upload,
@@ -49,7 +56,13 @@ program
   .action(
     async (
       url: string | undefined,
-      options: { upload: boolean; useChrome?: boolean; output?: string; verbose?: boolean; debug?: boolean },
+      options: {
+        upload: boolean;
+        useChrome?: boolean;
+        output?: string;
+        verbose?: boolean;
+        debug?: boolean;
+      },
     ) => {
       if (url && !url.startsWith("-")) {
         await convert(url, {
@@ -71,6 +84,15 @@ program
 program.command("auth").description("Set up Dropbox integration with OAuth PKCE").action(auth);
 
 program.command("status").description("Show login and Dropbox connection status").action(status);
+
+program
+  .command("serve")
+  .description("Start a web server for browser-based and shortcut-based conversion")
+  .option("-p, --port <number>", "Port to listen on", "3000")
+  .option("--use-chrome", "Use your system Chrome profile (Chrome must be closed)")
+  .action(async (options: { port: string; useChrome?: boolean }) => {
+    await serve({ port: parseInt(options.port, 10), useChrome: options.useChrome });
+  });
 
 async function main(): Promise<void> {
   await program.parseAsync(process.argv);
