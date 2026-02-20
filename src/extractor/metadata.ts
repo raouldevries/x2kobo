@@ -1,5 +1,12 @@
-import { JSDOM } from "jsdom";
+import { JSDOM, VirtualConsole } from "jsdom";
 import { Readability } from "@mozilla/readability";
+
+function quietJsdom(html: string, options: { url?: string; contentType?: string } = {}): JSDOM {
+  const virtualConsole = new VirtualConsole();
+  // Forward everything except CSS parse errors
+  virtualConsole.on("error", () => {});
+  return new JSDOM(html, { ...options, virtualConsole });
+}
 
 export interface ArticleData {
   title: string;
@@ -43,7 +50,7 @@ function preprocessDraftJs(document: Document): void {
 }
 
 function extractWithReadability(html: string, url: string): string | null {
-  const dom = new JSDOM(html, { url });
+  const dom = quietJsdom(html, { url });
   preprocessDraftJs(dom.window.document);
   const reader = new Readability(dom.window.document);
   const result = reader.parse();
@@ -51,7 +58,7 @@ function extractWithReadability(html: string, url: string): string | null {
 }
 
 function extractFallback(html: string, url: string): string | null {
-  const dom = new JSDOM(html, { url });
+  const dom = quietJsdom(html, { url });
   const doc = dom.window.document;
   const articleView = doc.querySelector('[data-testid="twitterArticleRichTextView"]');
   if (!articleView) return null;
@@ -61,7 +68,7 @@ function extractFallback(html: string, url: string): string | null {
 }
 
 function extractArticleImages(html: string, url: string): string[] {
-  const dom = new JSDOM(html, { url });
+  const dom = quietJsdom(html, { url });
   const doc = dom.window.document;
   const readView = doc.querySelector('[data-testid="twitterArticleReadView"]');
   if (!readView) return [];
@@ -108,7 +115,7 @@ export function extractMetadata(
   html: string,
   url: string,
 ): { title: string; author: string; handle: string; publishDate: string } {
-  const dom = new JSDOM(html, { url });
+  const dom = quietJsdom(html, { url });
   const doc = dom.window.document;
 
   let title = "";

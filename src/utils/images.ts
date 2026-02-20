@@ -89,7 +89,7 @@ export async function downloadImages(html: string, context: BrowserContext): Pro
 
   for (const img of imgElements) {
     const src = img.getAttribute("src");
-    if (!src) {
+    if (!src || src.includes("profile_images")) {
       img.remove();
       continue;
     }

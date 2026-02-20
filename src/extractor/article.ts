@@ -42,15 +42,21 @@ async function detectLoginWall(page: Page): Promise<boolean> {
   return false;
 }
 
+async function detectPageNotFound(page: Page): Promise<boolean> {
+  const errorDetail = await page.$('[data-testid="error-detail"]');
+  return errorDetail !== null;
+}
+
 async function detectArticle(page: Page): Promise<boolean> {
-  for (const selector of ARTICLE_SELECTORS) {
-    try {
-      await page.waitForSelector(selector, { timeout: PAGE_TIMEOUT });
-      return true;
-    } catch {
-      // continue to next selector
-    }
-  }
+  // Race all selectors in parallel instead of waiting sequentially
+  const selectorPromises = ARTICLE_SELECTORS.map((selector) =>
+    page
+      .waitForSelector(selector, { timeout: PAGE_TIMEOUT })
+      .then(() => true)
+      .catch(() => false),
+  );
+  const results = await Promise.all(selectorPromises);
+  if (results.some(Boolean)) return true;
 
   // Fallback: look for a span with text "Article"
   const fallback = await page.$$eval("span", (spans) =>
@@ -81,14 +87,31 @@ export async function loadArticle(url: string, options: LoadArticleOptions = {})
     throw new UserError(`Page loading timed out after 30 seconds. Debug snapshot: ${snapshot}`);
   }
 
-  if (await detectLoginWall(page)) {
+  // Check for immediate failures before waiting for article content
+  await page.waitForTimeout(3000);
+
+  if (isLoginRedirect(page.url())) {
     const snapshot = await saveDebugSnapshot(page);
-    throw new UserError(`Run \`npx x2kobo login\` to log in again. Debug snapshot: ${snapshot}`);
+    throw new UserError(
+      `X requires login to view this article. Run \`npx x2kobo login\` first. Debug snapshot: ${snapshot}`,
+    );
+  }
+
+  if (await detectPageNotFound(page)) {
+    throw new UserError(`Page not found — this URL doesn't exist on X.`);
   }
 
   const isArticle = await detectArticle(page);
   if (isArticle) {
     return page;
+  }
+
+  // Article not found — determine why
+  if (await detectLoginWall(page)) {
+    const snapshot = await saveDebugSnapshot(page);
+    throw new UserError(
+      `X requires login to view this article. Run \`npx x2kobo login\` first. Debug snapshot: ${snapshot}`,
+    );
   }
 
   if (await detectTweet(page)) {

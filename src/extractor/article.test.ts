@@ -6,6 +6,7 @@ const mockPage = {
   $: vi.fn().mockResolvedValue(null),
   $$eval: vi.fn().mockResolvedValue(false),
   waitForSelector: vi.fn(),
+  waitForTimeout: vi.fn().mockResolvedValue(undefined),
   content: vi.fn().mockResolvedValue("<html></html>"),
 };
 
@@ -39,7 +40,7 @@ describe("loadArticle", () => {
   });
 
   it("should return page when article is detected via primary selector", async () => {
-    mockPage.waitForSelector.mockResolvedValueOnce(true);
+    mockPage.waitForSelector.mockResolvedValueOnce(true).mockRejectedValueOnce(new Error("timeout"));
     const { loadArticle } = await import("./article.js");
     const page = await loadArticle("https://x.com/user/article/123");
     expect(page).toBe(mockPage);
@@ -50,7 +51,7 @@ describe("loadArticle", () => {
     mockPage.waitForSelector.mockRejectedValue(new Error("timeout"));
     const { loadArticle } = await import("./article.js");
     await expect(loadArticle("https://x.com/user/article/123")).rejects.toThrow(
-      "Run `npx x2kobo login` to log in again.",
+      "X requires login to view this article.",
     );
   });
 
@@ -62,7 +63,7 @@ describe("loadArticle", () => {
     mockPage.waitForSelector.mockRejectedValue(new Error("timeout"));
     const { loadArticle } = await import("./article.js");
     await expect(loadArticle("https://x.com/user/article/123")).rejects.toThrow(
-      "Run `npx x2kobo login` to log in again.",
+      "X requires login to view this article.",
     );
   });
 
