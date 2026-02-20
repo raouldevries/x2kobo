@@ -4,3 +4,6 @@ dist/
 .env
 .x2kobo/
 *.tgz
+PROMPT.md
+x2kobo-implementation-plan.md
+docs/handovers/
