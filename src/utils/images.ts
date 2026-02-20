@@ -1,5 +1,8 @@
 import type { BrowserContext } from "playwright";
 import { JSDOM } from "jsdom";
+import { verbose } from "./logger.js";
+
+const CONCURRENCY = 4;
 
 export interface ImageAsset {
   filename: string;
@@ -79,57 +82,102 @@ async function convertWebpToJpeg(data: Buffer): Promise<{ data: Buffer; mime: st
   }
 }
 
+interface DownloadJob {
+  img: Element;
+  src: string;
+  index: number;
+}
+
+async function downloadOne(
+  job: DownloadJob,
+  context: BrowserContext,
+): Promise<{ job: DownloadJob; asset: ImageAsset } | null> {
+  const downloadUrl = transformTwimgUrl(job.src);
+  verbose(`Downloading image ${job.index + 1}: ${downloadUrl}`);
+
+  try {
+    const response = await context.request.get(downloadUrl);
+    if (!response.ok()) {
+      verbose(`Failed (${response.status()}): ${downloadUrl}`);
+      return null;
+    }
+
+    let data: Buffer = Buffer.from(await response.body()) as Buffer;
+    const contentType = response.headers()["content-type"]?.split(";")[0]?.trim();
+    let mime = detectMimeType(data, contentType);
+
+    if (mime === "image/webp") {
+      const converted = await convertWebpToJpeg(data);
+      if (converted) {
+        data = converted.data;
+        mime = converted.mime;
+      } else {
+        return null;
+      }
+    }
+
+    const ext = extensionForMime(mime);
+    const filename = `img-${String(job.index + 1).padStart(3, "0")}${ext}`;
+    verbose(`Downloaded image ${job.index + 1}: ${filename} (${(data.length / 1024).toFixed(1)} KB)`);
+
+    return { job, asset: { filename, data, mediaType: mime } };
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    verbose(`Error downloading image ${job.index + 1}: ${message}`);
+    return null;
+  }
+}
+
 export async function downloadImages(html: string, context: BrowserContext): Promise<ImageResult> {
   const dom = new JSDOM(html);
   const doc = dom.window.document;
   const imgElements = doc.querySelectorAll("img");
-  const images: ImageAsset[] = [];
   const totalFound = imgElements.length;
+
+  // Build download jobs, filtering out profile images and empty srcs
+  const jobs: DownloadJob[] = [];
+  const skipped: Element[] = [];
   let imgIndex = 0;
 
   for (const img of imgElements) {
     const src = img.getAttribute("src");
     if (!src || src.includes("profile_images")) {
-      img.remove();
+      skipped.push(img);
       continue;
     }
+    jobs.push({ img, src, index: imgIndex });
+    imgIndex++;
+  }
 
-    const downloadUrl = transformTwimgUrl(src);
+  // Remove skipped images from DOM
+  for (const img of skipped) {
+    img.remove();
+  }
 
-    try {
-      const response = await context.request.get(downloadUrl);
-      if (!response.ok()) {
-        console.warn(`Failed to download image: ${downloadUrl} (${response.status()})`);
-        img.remove();
-        continue;
+  verbose(`Found ${totalFound} img tags, ${jobs.length} to download (concurrency: ${CONCURRENCY})`);
+
+  // Download in parallel with concurrency limit
+  const images: ImageAsset[] = [];
+  const failedJobs: DownloadJob[] = [];
+
+  for (let i = 0; i < jobs.length; i += CONCURRENCY) {
+    const batch = jobs.slice(i, i + CONCURRENCY);
+    const results = await Promise.all(batch.map((job) => downloadOne(job, context)));
+
+    for (let j = 0; j < results.length; j++) {
+      const result = results[j];
+      if (result) {
+        images.push(result.asset);
+        result.job.img.setAttribute("src", `images/${result.asset.filename}`);
+      } else {
+        failedJobs.push(batch[j]);
+        batch[j].img.remove();
       }
-
-      let data: Buffer = Buffer.from(await response.body()) as Buffer;
-      const contentType = response.headers()["content-type"]?.split(";")[0]?.trim();
-      let mime = detectMimeType(data, contentType);
-
-      if (mime === "image/webp") {
-        const converted = await convertWebpToJpeg(data);
-        if (converted) {
-          data = converted.data;
-          mime = converted.mime;
-        } else {
-          img.remove();
-          continue;
-        }
-      }
-
-      const ext = extensionForMime(mime);
-      const filename = `img-${String(imgIndex + 1).padStart(3, "0")}${ext}`;
-      imgIndex++;
-
-      images.push({ filename, data, mediaType: mime });
-      img.setAttribute("src", `images/${filename}`);
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.warn(`Failed to download image: ${message}`);
-      img.remove();
     }
+  }
+
+  if (failedJobs.length > 0) {
+    verbose(`${failedJobs.length} image(s) failed to download`);
   }
 
   return {

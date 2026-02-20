@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const mockPage = {
   content: vi.fn().mockResolvedValue("<html><body><p>Test</p></body></html>"),
   title: vi.fn().mockResolvedValue("Test Article"),
+  url: vi.fn().mockReturnValue("https://x.com/author/article/1"),
   context: vi.fn().mockReturnValue({ request: { get: vi.fn() } }),
 };
 
@@ -70,6 +71,8 @@ vi.mock("../utils/logger.js", () => ({
   failSpinner: vi.fn(),
   stopSpinner: vi.fn(),
   printSummary: vi.fn(),
+  setVerbose: vi.fn(),
+  verbose: vi.fn(),
 }));
 
 vi.mock("fs", () => ({

@@ -2,6 +2,22 @@ import ora, { type Ora } from "ora";
 import chalk from "chalk";
 
 let spinner: Ora | null = null;
+let verboseEnabled = false;
+
+export function setVerbose(enabled: boolean): void {
+  verboseEnabled = enabled;
+}
+
+export function verbose(message: string): void {
+  if (!verboseEnabled) return;
+  if (spinner) {
+    spinner.stop();
+  }
+  console.log(chalk.dim(`  [verbose] ${message}`));
+  if (spinner) {
+    spinner.start();
+  }
+}
 
 export function startSpinner(text: string): void {
   spinner = ora(text).start();

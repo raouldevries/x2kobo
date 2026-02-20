@@ -13,6 +13,8 @@ import {
   failSpinner,
   stopSpinner,
   printSummary,
+  setVerbose,
+  verbose,
 } from "../utils/logger.js";
 import { isUserError } from "../utils/errors.js";
 
@@ -25,20 +27,32 @@ export interface ConvertOptions {
 }
 
 export async function convert(url: string, options: ConvertOptions): Promise<void> {
+  if (options.verbose) {
+    setVerbose(true);
+  }
+
   try {
     // Stage 1: Load article page
     startSpinner("Loading article...");
+    verbose(`URL: ${url}`);
+    verbose(`Options: debug=${!!options.debug}, useChrome=${!!options.useChrome}, noUpload=${!!options.noUpload}`);
     const page = await loadArticle(url, {
       useSystemChrome: options.useChrome,
       headless: !options.debug,
     });
     const pageContent = await page.content();
     const pageTitle = await page.title();
+    verbose(`Page title: ${pageTitle}`);
+    verbose(`Page URL after navigation: ${page.url()}`);
+    verbose(`Page content length: ${pageContent.length} chars`);
     succeedSpinner("Article loaded");
 
     // Stage 2: Extract content
     startSpinner("Extracting content...");
     const article = extractArticle(pageContent, url, pageTitle);
+    verbose(`Extracted title: ${article.title}`);
+    verbose(`Author: ${article.author} (${article.handle})`);
+    verbose(`Word count: ~${article.readingTime * 230} words`);
     const context = page.context();
     const imageResult = await downloadImages(article.bodyHtml, context);
     article.bodyHtml = imageResult.html;
@@ -49,6 +63,7 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
     // Stage 3: Generate KEPUB
     startSpinner("Generating KEPUB...");
     const epub = await buildEpub(article, imageResult.images);
+    verbose(`EPUB filename: ${epub.filename}`);
 
     // Apply KEPUB transformation to the chapter inside the zip
     const JSZip = (await import("jszip")).default;
