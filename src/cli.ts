@@ -22,16 +22,18 @@ program
   .option("--use-chrome", "Use your system Chrome profile (Chrome must be closed)")
   .option("-o, --output <path>", "Output file path")
   .option("-v, --verbose", "Show verbose output")
+  .option("--debug", "Show browser window during conversion")
   .action(
     async (
       url: string,
-      options: { upload: boolean; useChrome?: boolean; output?: string; verbose?: boolean },
+      options: { upload: boolean; useChrome?: boolean; output?: string; verbose?: boolean; debug?: boolean },
     ) => {
       await convert(url, {
         noUpload: !options.upload,
         useChrome: options.useChrome,
         output: options.output,
         verbose: options.verbose,
+        debug: options.debug,
       });
     },
   );
@@ -43,10 +45,11 @@ program
   .option("--use-chrome", "Use your system Chrome profile (Chrome must be closed)")
   .option("-o, --output <path>", "Output file path")
   .option("-v, --verbose", "Show verbose output")
+  .option("--debug", "Show browser window during conversion")
   .action(
     async (
       url: string | undefined,
-      options: { upload: boolean; useChrome?: boolean; output?: string; verbose?: boolean },
+      options: { upload: boolean; useChrome?: boolean; output?: string; verbose?: boolean; debug?: boolean },
     ) => {
       if (url && !url.startsWith("-")) {
         await convert(url, {
@@ -54,6 +57,7 @@ program
           useChrome: options.useChrome,
           output: options.output,
           verbose: options.verbose,
+          debug: options.debug,
         });
       }
     },

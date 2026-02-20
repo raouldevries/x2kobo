@@ -92,7 +92,7 @@ describe("convert", () => {
     const { loadArticle } = await import("../extractor/article.js");
     const { extractArticle } = await import("../extractor/metadata.js");
 
-    expect(loadArticle).toHaveBeenCalledWith("https://x.com/author/article/1", { useSystemChrome: undefined });
+    expect(loadArticle).toHaveBeenCalledWith("https://x.com/author/article/1", { useSystemChrome: undefined, headless: true });
     expect(extractArticle).toHaveBeenCalled();
   });
 

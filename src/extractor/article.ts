@@ -72,12 +72,16 @@ async function detectTweet(page: Page): Promise<boolean> {
 
 export interface LoadArticleOptions {
   useSystemChrome?: boolean;
+  headless?: boolean;
 }
 
 export async function loadArticle(url: string, options: LoadArticleOptions = {}): Promise<Page> {
   validateArticleUrl(url);
 
-  const context = await getBrowser({ headless: true, useSystemChrome: options.useSystemChrome });
+  const context = await getBrowser({
+    headless: options.headless ?? true,
+    useSystemChrome: options.useSystemChrome,
+  });
   const page = await context.newPage();
 
   try {
