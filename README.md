@@ -64,7 +64,7 @@ Enter your App Key when prompted, open the authorization URL in your browser, an
 npx x2kobo https://x.com/username/article/123456
 ```
 
-The KEPUB file is saved locally and uploaded to `/Apps/x2kobo/` in your Dropbox.
+The KEPUB file is saved locally and uploaded to `/Apps/Rakuten Kobo/X Articles/` in your Dropbox, where your Kobo e-reader will automatically sync it.
 
 ## Commands
 
@@ -82,6 +82,7 @@ The KEPUB file is saved locally and uploaded to `/Apps/x2kobo/` in your Dropbox.
 |------|-------------|
 | `--no-upload` | Skip Dropbox upload, save locally only |
 | `-o, --output <path>` | Set output file path |
+| `--debug` | Show the browser window during conversion |
 | `-v, --verbose` | Show verbose debug output |
 | `--version` | Show version |
 | `--help` | Show help |
