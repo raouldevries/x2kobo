@@ -60,6 +60,44 @@ function extractFallback(html: string, url: string): string | null {
   return articleView.innerHTML;
 }
 
+function extractArticleImages(html: string, url: string): string[] {
+  const dom = new JSDOM(html, { url });
+  const doc = dom.window.document;
+  const readView = doc.querySelector('[data-testid="twitterArticleReadView"]');
+  if (!readView) return [];
+
+  const photoEls = readView.querySelectorAll('[data-testid="tweetPhoto"] img');
+  const srcs: string[] = [];
+  for (const img of photoEls) {
+    const src = img.getAttribute("src");
+    if (src && !src.includes("profile_images")) {
+      srcs.push(src);
+    }
+  }
+  return srcs;
+}
+
+function injectImages(bodyHtml: string, imageSrcs: string[]): string {
+  if (imageSrcs.length === 0) return bodyHtml;
+
+  // Filter out images already present in the body
+  const missing = imageSrcs.filter((src) => !bodyHtml.includes(src));
+  if (missing.length === 0) return bodyHtml;
+
+  const imgTags = missing
+    .map((src) => {
+      const escaped = src.replace(/&/g, "&amp;");
+      return `<img src="${escaped}" alt="" />`;
+    })
+    .join("\n");
+  // Insert after the first opening div or at the start
+  const insertPoint = bodyHtml.indexOf(">");
+  if (insertPoint > -1) {
+    return bodyHtml.slice(0, insertPoint + 1) + "\n" + imgTags + bodyHtml.slice(insertPoint + 1);
+  }
+  return imgTags + bodyHtml;
+}
+
 function calculateReadingTime(html: string): number {
   const text = html.replace(/<[^>]+>/g, " ");
   const words = text.split(/\s+/).filter((w) => w.length > 0);
@@ -140,6 +178,10 @@ export function extractArticle(html: string, url: string, pageTitle: string): Ar
   if (!bodyHtml || bodyHtml.trim().length < 100) {
     bodyHtml = extractFallback(html, url) ?? bodyHtml ?? "";
   }
+
+  // Inject article images that Readability may have stripped
+  const articleImages = extractArticleImages(html, url);
+  bodyHtml = injectImages(bodyHtml, articleImages);
 
   const readingTime = calculateReadingTime(bodyHtml);
 

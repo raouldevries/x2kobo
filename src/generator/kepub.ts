@@ -17,7 +17,8 @@ function isAlreadyWrapped(node: Node): boolean {
 }
 
 export function transformToKepub(xhtml: string, chapterIndex: number): string {
-  const dom = new JSDOM(xhtml, { contentType: "application/xhtml+xml" });
+  // Parse as HTML (lenient) to handle content from Readability that may not be strict XHTML
+  const dom = new JSDOM(xhtml, { contentType: "text/html" });
   const doc = dom.window.document;
   const body = doc.body;
 
