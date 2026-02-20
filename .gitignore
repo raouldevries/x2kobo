@@ -1,0 +1,6 @@
+node_modules/
+dist/
+*.kepub.epub
+.env
+.x2kobo/
+*.tgz
