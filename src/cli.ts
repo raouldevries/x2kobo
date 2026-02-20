@@ -19,30 +19,39 @@ program
   .description("Convert an X Article URL to a KEPUB file")
   .argument("<url>", "X Article URL to convert")
   .option("--no-upload", "Skip Dropbox upload")
+  .option("--use-chrome", "Use your system Chrome profile (Chrome must be closed)")
   .option("-o, --output <path>", "Output file path")
   .option("-v, --verbose", "Show verbose output")
-  .action(async (url: string, options: { upload: boolean; output?: string; verbose?: boolean }) => {
-    await convert(url, {
-      noUpload: !options.upload,
-      output: options.output,
-      verbose: options.verbose,
-    });
-  });
+  .action(
+    async (
+      url: string,
+      options: { upload: boolean; useChrome?: boolean; output?: string; verbose?: boolean },
+    ) => {
+      await convert(url, {
+        noUpload: !options.upload,
+        useChrome: options.useChrome,
+        output: options.output,
+        verbose: options.verbose,
+      });
+    },
+  );
 
 // Default command: treat first argument as URL for convert
 program
   .argument("[url]", "X Article URL to convert (shortcut for `convert`)")
   .option("--no-upload", "Skip Dropbox upload")
+  .option("--use-chrome", "Use your system Chrome profile (Chrome must be closed)")
   .option("-o, --output <path>", "Output file path")
   .option("-v, --verbose", "Show verbose output")
   .action(
     async (
       url: string | undefined,
-      options: { upload: boolean; output?: string; verbose?: boolean },
+      options: { upload: boolean; useChrome?: boolean; output?: string; verbose?: boolean },
     ) => {
       if (url && !url.startsWith("-")) {
         await convert(url, {
           noUpload: !options.upload,
+          useChrome: options.useChrome,
           output: options.output,
           verbose: options.verbose,
         });

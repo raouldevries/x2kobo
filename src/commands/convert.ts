@@ -20,13 +20,14 @@ export interface ConvertOptions {
   noUpload?: boolean;
   output?: string;
   verbose?: boolean;
+  useChrome?: boolean;
 }
 
 export async function convert(url: string, options: ConvertOptions): Promise<void> {
   try {
     // Stage 1: Load article page
     startSpinner("Loading article...");
-    const page = await loadArticle(url);
+    const page = await loadArticle(url, { useSystemChrome: options.useChrome });
     const pageContent = await page.content();
     const pageTitle = await page.title();
     succeedSpinner("Article loaded");

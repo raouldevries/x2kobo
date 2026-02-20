@@ -92,7 +92,7 @@ describe("extractMetadata", () => {
       "https://x.com/user/article/1",
     );
     expect(author).toBe("Unknown");
-    expect(handle).toBe("");
+    expect(handle).toBe("@user");
     expect(publishDate).toBe("");
   });
 });

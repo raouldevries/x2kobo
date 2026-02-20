@@ -69,36 +69,54 @@ function calculateReadingTime(html: string): number {
 export function extractMetadata(
   html: string,
   url: string,
-): { author: string; handle: string; publishDate: string } {
+): { title: string; author: string; handle: string; publishDate: string } {
   const dom = new JSDOM(html, { url });
   const doc = dom.window.document;
 
-  // Extract author from meta tags or page content
+  let title = "";
   let author = "Unknown";
   let handle = "";
   let publishDate = "";
 
-  // Try og:title for author name
-  const ogTitle = doc.querySelector('meta[property="og:title"]');
-  if (ogTitle) {
-    const content = ogTitle.getAttribute("content") ?? "";
-    // Format: "Article Title by Author Name"
-    const byMatch = content.match(/by\s+(.+)$/);
-    if (byMatch) {
-      author = byMatch[1].trim();
-    }
+  // Extract title from article title element
+  const titleEl = doc.querySelector('[data-testid="twitter-article-title"]');
+  if (titleEl) {
+    title = titleEl.textContent?.trim() ?? "";
   }
 
-  // Try to find author from article header area
+  // Extract handle from URL (most reliable source)
+  const urlMatch = url.match(/x\.com\/([a-zA-Z0-9_]+)\//);
+  if (urlMatch) {
+    handle = `@${urlMatch[1]}`;
+  }
+
+  // Try to find author display name from article header
   const authorLinks = doc.querySelectorAll('a[role="link"]');
   for (const link of authorLinks) {
     const href = link.getAttribute("href") ?? "";
-    if (href.match(/^\/[a-zA-Z0-9_]+$/) && !href.includes("/status/")) {
+    const handleFromUrl = handle.replace("@", "");
+    if (href === `/${handleFromUrl}`) {
       const text = link.textContent?.trim() ?? "";
-      if (text.startsWith("@")) {
-        handle = text;
-      } else if (text && text !== author && !text.includes("·")) {
+      if (text && !text.startsWith("@") && !text.includes("·")) {
         author = text;
+        break;
+      }
+    }
+  }
+
+  // Fallback: try UserAvatar container for author name
+  if (author === "Unknown" && handle) {
+    const handleClean = handle.replace("@", "");
+    const avatarContainer = doc.querySelector(
+      `[data-testid="UserAvatar-Container-${handleClean}"]`,
+    );
+    if (avatarContainer) {
+      const parentLink = avatarContainer.closest("a");
+      if (parentLink?.nextElementSibling) {
+        const nameText = parentLink.nextElementSibling.textContent?.trim() ?? "";
+        if (nameText) {
+          author = nameText.split("\n")[0].trim();
+        }
       }
     }
   }
@@ -112,11 +130,11 @@ export function extractMetadata(
     }
   }
 
-  return { author, handle, publishDate };
+  return { title, author, handle, publishDate };
 }
 
-export function extractArticle(html: string, url: string, title: string): ArticleData {
-  const { author, handle, publishDate } = extractMetadata(html, url);
+export function extractArticle(html: string, url: string, pageTitle: string): ArticleData {
+  const { title: extractedTitle, author, handle, publishDate } = extractMetadata(html, url);
 
   let bodyHtml = extractWithReadability(html, url);
   if (!bodyHtml || bodyHtml.trim().length < 100) {
@@ -126,7 +144,7 @@ export function extractArticle(html: string, url: string, title: string): Articl
   const readingTime = calculateReadingTime(bodyHtml);
 
   return {
-    title,
+    title: extractedTitle || pageTitle,
     author,
     handle,
     publishDate,

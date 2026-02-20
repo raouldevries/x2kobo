@@ -24,7 +24,7 @@ describe("browser", () => {
     expect(ctx).toBeDefined();
     expect(chromium.launchPersistentContext).toHaveBeenCalledWith(
       expect.stringContaining(".x2kobo/browser-data"),
-      { headless: true },
+      { headless: true, channel: "chrome" },
     );
   });
 
@@ -34,7 +34,7 @@ describe("browser", () => {
     await getBrowser({ headless: false });
     expect(chromium.launchPersistentContext).toHaveBeenCalledWith(
       expect.stringContaining(".x2kobo/browser-data"),
-      { headless: false },
+      { headless: false, channel: "chrome" },
     );
   });
 
