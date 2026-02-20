@@ -56,7 +56,7 @@ describe("uploadToDropbox", () => {
     const callArgs = vi.mocked(fetch).mock.calls[0];
     const headers = (callArgs[1] as { headers: Record<string, string> }).headers;
     const apiArg = JSON.parse(headers["Dropbox-API-Arg"]);
-    expect(apiArg.path).toBe("/Apps/x2kobo/test.kepub.epub");
+    expect(apiArg.path).toBe("/Rakuten Kobo/test.kepub.epub");
     expect(apiArg.autorename).toBe(true);
   });
 

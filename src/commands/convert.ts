@@ -82,7 +82,7 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
 
     // Stage 5: Upload to Dropbox
     let uploaded = false;
-    const dropboxPath = `/Apps/x2kobo/${epub.filename}`;
+    const dropboxPath = `/Rakuten Kobo/${epub.filename}`;
     if (!options.noUpload) {
       startSpinner("Uploading to Dropbox...");
       try {
