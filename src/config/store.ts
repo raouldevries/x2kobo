@@ -18,8 +18,25 @@ export interface DropboxTokens {
   appSecret: string;
 }
 
+export interface UserDefaults {
+  noUpload?: boolean;
+  useChrome?: boolean;
+  verbose?: boolean;
+  debug?: boolean;
+  output?: string;
+}
+
+export const VALID_DEFAULT_KEYS: (keyof UserDefaults)[] = [
+  "noUpload",
+  "useChrome",
+  "verbose",
+  "debug",
+  "output",
+];
+
 export interface AppConfig {
   dropbox?: DropboxTokens;
+  defaults?: UserDefaults;
 }
 
 export function loadConfig(): AppConfig {
@@ -46,5 +63,16 @@ export function getDropboxTokens(): DropboxTokens | undefined {
 export function saveDropboxTokens(tokens: DropboxTokens): void {
   const config = loadConfig();
   config.dropbox = tokens;
+  saveConfig(config);
+}
+
+export function getUserDefaults(): UserDefaults {
+  const config = loadConfig();
+  return config.defaults ?? {};
+}
+
+export function saveUserDefaults(defaults: UserDefaults): void {
+  const config = loadConfig();
+  config.defaults = defaults;
   saveConfig(config);
 }

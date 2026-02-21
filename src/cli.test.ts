@@ -15,4 +15,17 @@ describe("CLI", () => {
     const output = execFileSync("node", [cliPath, "--version"], { encoding: "utf-8" });
     expect(output.trim()).toBe("0.1.0");
   });
+
+  it("should show variadic urls in convert help", () => {
+    const output = execFileSync("node", [cliPath, "convert", "--help"], { encoding: "utf-8" });
+    expect(output).toContain("urls");
+  });
+
+  it("should have config subcommand", () => {
+    const output = execFileSync("node", [cliPath, "config", "--help"], { encoding: "utf-8" });
+    expect(output).toContain("set");
+    expect(output).toContain("get");
+    expect(output).toContain("list");
+    expect(output).toContain("reset");
+  });
 });

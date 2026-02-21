@@ -5,6 +5,7 @@ const mockPage = {
   title: vi.fn().mockResolvedValue("Test Article"),
   url: vi.fn().mockReturnValue("https://x.com/author/article/1"),
   context: vi.fn().mockReturnValue({ request: { get: vi.fn() } }),
+  close: vi.fn().mockResolvedValue(undefined),
 };
 
 vi.mock("../extractor/article.js", () => ({
@@ -125,5 +126,23 @@ describe("convert", () => {
         title: "Test Article",
       }),
     );
+  });
+
+  it("should close browser by default", async () => {
+    const { convert } = await import("./convert.js");
+    await convert("https://x.com/author/article/1", { noUpload: true });
+
+    const { closeBrowser } = await import("../extractor/browser.js");
+    expect(closeBrowser).toHaveBeenCalled();
+    expect(mockPage.close).not.toHaveBeenCalled();
+  });
+
+  it("should keep browser open and close page when keepBrowserOpen is true", async () => {
+    const { convert } = await import("./convert.js");
+    await convert("https://x.com/author/article/1", { noUpload: true, keepBrowserOpen: true });
+
+    const { closeBrowser } = await import("../extractor/browser.js");
+    expect(closeBrowser).not.toHaveBeenCalled();
+    expect(mockPage.close).toHaveBeenCalled();
   });
 });

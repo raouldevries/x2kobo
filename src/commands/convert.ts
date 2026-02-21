@@ -24,6 +24,7 @@ export interface ConvertOptions {
   verbose?: boolean;
   useChrome?: boolean;
   debug?: boolean;
+  keepBrowserOpen?: boolean;
 }
 
 export async function convert(url: string, options: ConvertOptions): Promise<void> {
@@ -98,7 +99,11 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
       }
     }
 
-    await closeBrowser();
+    if (options.keepBrowserOpen) {
+      await page.close();
+    } else {
+      await closeBrowser();
+    }
 
     printSummary({
       title: article.title,
@@ -113,7 +118,9 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
     });
   } catch (error: unknown) {
     stopSpinner();
-    await closeBrowser();
+    if (!options.keepBrowserOpen) {
+      await closeBrowser();
+    }
     throw error;
   }
 }

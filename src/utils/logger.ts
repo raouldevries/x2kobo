@@ -77,3 +77,23 @@ export function printSummary(info: {
   }
   console.log("");
 }
+
+export function printBatchSummary(
+  results: Array<{ url: string; success: boolean; error?: string }>,
+): void {
+  const succeeded = results.filter((r) => r.success).length;
+  const failed = results.filter((r) => !r.success);
+
+  console.log("");
+  console.log(chalk.bold("Batch complete!"));
+  console.log(`  ${succeeded} of ${results.length} articles converted successfully`);
+
+  if (failed.length > 0) {
+    console.log("");
+    console.log(chalk.red("  Failed:"));
+    for (const f of failed) {
+      console.log(chalk.red(`    ${f.url}: ${f.error}`));
+    }
+  }
+  console.log("");
+}
