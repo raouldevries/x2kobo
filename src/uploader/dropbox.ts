@@ -61,8 +61,7 @@ async function uploadWithRetry(
           "Content-Type": "application/octet-stream",
           "Dropbox-API-Arg": JSON.stringify({
             path: dropboxPath,
-            mode: "add",
-            autorename: true,
+            mode: "overwrite",
             mute: false,
           }),
         },

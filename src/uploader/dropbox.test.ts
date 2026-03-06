@@ -57,7 +57,7 @@ describe("uploadToDropbox", () => {
     const headers = (callArgs[1] as { headers: Record<string, string> }).headers;
     const apiArg = JSON.parse(headers["Dropbox-API-Arg"]);
     expect(apiArg.path).toBe("/Apps/Rakuten Kobo/X Articles/test.kepub.epub");
-    expect(apiArg.autorename).toBe(true);
+    expect(apiArg.mode).toBe("overwrite");
   });
 
   it("should throw UserError when no tokens configured", async () => {
