@@ -91,9 +91,17 @@ export async function loadArticle(url: string, options: LoadArticleOptions = {})
     throw new UserError(`Page loading timed out after 30 seconds. Debug snapshot: ${snapshot}`);
   }
 
-  // For non-X URLs, just wait for page load and return
+  // For non-X URLs, wait for network to settle and return
   if (!isXUrl(url)) {
-    await page.waitForTimeout(3000);
+    try {
+      await page.waitForLoadState("networkidle", { timeout: 10_000 });
+    } catch (error: unknown) {
+      // Timeout is expected on sites with persistent connections — swallow it.
+      // Rethrow non-timeout errors (page crash, browser closed, etc.)
+      if (error instanceof Error && error.name !== "TimeoutError") {
+        throw error;
+      }
+    }
     return page;
   }
 
