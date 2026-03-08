@@ -22,6 +22,15 @@ vi.mock("../extractor/metadata.js", () => ({
     sourceUrl: "https://x.com/author/article/1",
     readingTime: 3,
   }),
+  extractGenericArticle: vi.fn().mockReturnValue({
+    title: "Generic Article",
+    author: "example.com",
+    handle: "",
+    publishDate: "",
+    bodyHtml: "<p>Generic content</p>",
+    sourceUrl: "https://example.com/article",
+    readingTime: 2,
+  }),
 }));
 
 vi.mock("../utils/images.js", () => ({
@@ -96,7 +105,10 @@ describe("convert", () => {
     const { loadArticle } = await import("../extractor/article.js");
     const { extractArticle } = await import("../extractor/metadata.js");
 
-    expect(loadArticle).toHaveBeenCalledWith("https://x.com/author/article/1", { useSystemChrome: undefined, headless: true });
+    expect(loadArticle).toHaveBeenCalledWith("https://x.com/author/article/1", {
+      useSystemChrome: undefined,
+      headless: true,
+    });
     expect(extractArticle).toHaveBeenCalled();
   });
 
@@ -144,5 +156,25 @@ describe("convert", () => {
     const { closeBrowser } = await import("../extractor/browser.js");
     expect(closeBrowser).not.toHaveBeenCalled();
     expect(mockPage.close).toHaveBeenCalled();
+  });
+
+  it("should use extractGenericArticle for non-X URLs", async () => {
+    const { convert } = await import("./convert.js");
+    await convert("https://example.com/article", { noUpload: true });
+
+    const { extractGenericArticle } = await import("../extractor/metadata.js");
+    const { extractArticle } = await import("../extractor/metadata.js");
+    expect(extractGenericArticle).toHaveBeenCalled();
+    expect(extractArticle).not.toHaveBeenCalled();
+  });
+
+  it("should use extractArticle for X URLs", async () => {
+    const { convert } = await import("./convert.js");
+    await convert("https://x.com/author/article/1", { noUpload: true });
+
+    const { extractArticle } = await import("../extractor/metadata.js");
+    const { extractGenericArticle } = await import("../extractor/metadata.js");
+    expect(extractArticle).toHaveBeenCalled();
+    expect(extractGenericArticle).not.toHaveBeenCalled();
   });
 });

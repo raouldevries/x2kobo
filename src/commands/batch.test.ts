@@ -21,10 +21,7 @@ describe("convertBatch", () => {
     const { convert } = await import("./convert.js");
     const { convertBatch } = await import("./batch.js");
 
-    await convertBatch(
-      ["https://x.com/a/1", "https://x.com/b/2"],
-      { noUpload: true },
-    );
+    await convertBatch(["https://x.com/a/1", "https://x.com/b/2"], { noUpload: true });
 
     expect(convert).toHaveBeenCalledTimes(2);
     expect(convert).toHaveBeenCalledWith(
@@ -39,16 +36,11 @@ describe("convertBatch", () => {
 
   it("should continue after a failure", async () => {
     const { convert } = await import("./convert.js");
-    vi.mocked(convert)
-      .mockRejectedValueOnce(new Error("fail1"))
-      .mockResolvedValueOnce(undefined);
+    vi.mocked(convert).mockRejectedValueOnce(new Error("fail1")).mockResolvedValueOnce(undefined);
 
     const { convertBatch } = await import("./batch.js");
 
-    await convertBatch(
-      ["https://x.com/a/1", "https://x.com/b/2"],
-      { noUpload: true },
-    );
+    await convertBatch(["https://x.com/a/1", "https://x.com/b/2"], { noUpload: true });
 
     expect(convert).toHaveBeenCalledTimes(2);
   });
@@ -94,9 +86,7 @@ describe("convertBatch", () => {
 
     await convertBatch(["https://x.com/a/1"], { noUpload: true });
 
-    expect(printBatchSummary).toHaveBeenCalledWith([
-      { url: "https://x.com/a/1", success: true },
-    ]);
+    expect(printBatchSummary).toHaveBeenCalledWith([{ url: "https://x.com/a/1", success: true }]);
   });
 
   it("should warn and ignore --output with multiple URLs", async () => {
@@ -104,14 +94,12 @@ describe("convertBatch", () => {
     const { convert } = await import("./convert.js");
     const { convertBatch } = await import("./batch.js");
 
-    await convertBatch(
-      ["https://x.com/a/1", "https://x.com/b/2"],
-      { noUpload: true, output: "/tmp/out.epub" },
-    );
+    await convertBatch(["https://x.com/a/1", "https://x.com/b/2"], {
+      noUpload: true,
+      output: "/tmp/out.epub",
+    });
 
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("--output is ignored"),
-    );
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("--output is ignored"));
     expect(convert).toHaveBeenCalledWith(
       expect.anything(),
       expect.objectContaining({ output: undefined }),

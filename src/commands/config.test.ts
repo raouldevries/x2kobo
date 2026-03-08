@@ -19,9 +19,7 @@ describe("config commands", () => {
 
       configSet("noUpload", "true");
 
-      expect(saveUserDefaults).toHaveBeenCalledWith(
-        expect.objectContaining({ noUpload: true }),
-      );
+      expect(saveUserDefaults).toHaveBeenCalledWith(expect.objectContaining({ noUpload: true }));
       expect(console.log).toHaveBeenCalledWith("Set noUpload = true");
     });
 

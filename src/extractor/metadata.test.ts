@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { extractArticle, extractMetadata } from "./metadata.js";
+import {
+  extractArticle,
+  extractMetadata,
+  extractGenericMetadata,
+  extractGenericArticle,
+} from "./metadata.js";
 
 const MOCK_ARTICLE_HTML = `
 <!DOCTYPE html>
@@ -137,5 +142,157 @@ describe("extractArticle", () => {
   it("should include publish date in ISO 8601 format", () => {
     const result = extractArticle(MOCK_ARTICLE_HTML, "https://x.com/johndoe/article/123", "Test");
     expect(result.publishDate).toBe("2026-01-15T10:30:00.000Z");
+  });
+});
+
+const MOCK_GENERIC_HTML = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>A Great Blog Post</title>
+  <meta property="og:title" content="A Great Blog Post - My Blog" />
+  <meta name="author" content="Jane Smith" />
+  <meta property="article:published_time" content="2026-02-20T12:00:00Z" />
+</head>
+<body>
+  <article>
+    <h1>A Great Blog Post</h1>
+    <p>This is a substantial blog post with enough content to be extracted by Readability.
+    It contains multiple paragraphs and covers an interesting topic that readers would
+    enjoy on their Kobo e-reader. The content is well-structured and informative.</p>
+    <p>Second paragraph with more detail about the topic. This ensures we have enough
+    content for Readability to consider it a valid article extraction.</p>
+    <p>Third paragraph concluding the article with final thoughts and a summary of
+    the key points discussed throughout the post.</p>
+  </article>
+</body>
+</html>
+`;
+
+const MOCK_GENERIC_MINIMAL = `
+<!DOCTYPE html>
+<html>
+<head></head>
+<body>
+  <h1>Minimal Page</h1>
+  <p>Short.</p>
+</body>
+</html>
+`;
+
+const MOCK_GENERIC_OG_SITE = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta property="og:title" content="Tech Article" />
+  <meta property="og:site_name" content="TechBlog" />
+  <time datetime="2026-03-01T08:00:00Z">March 1</time>
+</head>
+<body>
+  <article>
+    <p>Some content here.</p>
+  </article>
+</body>
+</html>
+`;
+
+describe("extractGenericMetadata", () => {
+  it("should extract title from og:title", () => {
+    const { title } = extractGenericMetadata(
+      MOCK_GENERIC_HTML,
+      "https://example.com/blog/great-post",
+    );
+    expect(title).toBe("A Great Blog Post - My Blog");
+  });
+
+  it("should extract author from meta author", () => {
+    const { author } = extractGenericMetadata(
+      MOCK_GENERIC_HTML,
+      "https://example.com/blog/great-post",
+    );
+    expect(author).toBe("Jane Smith");
+  });
+
+  it("should extract publish date from article:published_time", () => {
+    const { publishDate } = extractGenericMetadata(
+      MOCK_GENERIC_HTML,
+      "https://example.com/blog/great-post",
+    );
+    expect(publishDate).toBe("2026-02-20T12:00:00Z");
+  });
+
+  it("should return empty handle", () => {
+    const { handle } = extractGenericMetadata(
+      MOCK_GENERIC_HTML,
+      "https://example.com/blog/great-post",
+    );
+    expect(handle).toBe("");
+  });
+
+  it("should fall back to h1 for title when no meta tags", () => {
+    const { title } = extractGenericMetadata(MOCK_GENERIC_MINIMAL, "https://example.com/page");
+    expect(title).toBe("Minimal Page");
+  });
+
+  it("should fall back to og:site_name for author", () => {
+    const { author } = extractGenericMetadata(MOCK_GENERIC_OG_SITE, "https://techblog.com/article");
+    expect(author).toBe("TechBlog");
+  });
+
+  it("should fall back to time element for date", () => {
+    const { publishDate } = extractGenericMetadata(
+      MOCK_GENERIC_OG_SITE,
+      "https://techblog.com/article",
+    );
+    expect(publishDate).toBe("2026-03-01T08:00:00Z");
+  });
+
+  it("should use hostname when no author metadata found", () => {
+    const { author } = extractGenericMetadata(MOCK_GENERIC_MINIMAL, "https://example.com/page");
+    expect(author).toBe("example.com");
+  });
+});
+
+describe("extractGenericArticle", () => {
+  it("should extract article with title, author, and body", () => {
+    const result = extractGenericArticle(
+      MOCK_GENERIC_HTML,
+      "https://example.com/blog/great-post",
+      "Fallback Title",
+    );
+    expect(result.title).toBe("A Great Blog Post - My Blog");
+    expect(result.author).toBe("Jane Smith");
+    expect(result.handle).toBe("");
+    expect(result.sourceUrl).toBe("https://example.com/blog/great-post");
+  });
+
+  it("should calculate reading time", () => {
+    const result = extractGenericArticle(
+      MOCK_GENERIC_HTML,
+      "https://example.com/blog/great-post",
+      "Test",
+    );
+    expect(result.readingTime).toBeGreaterThanOrEqual(1);
+  });
+
+  it("should have body HTML content", () => {
+    const result = extractGenericArticle(
+      MOCK_GENERIC_HTML,
+      "https://example.com/blog/great-post",
+      "Test",
+    );
+    expect(result.bodyHtml.length).toBeGreaterThan(0);
+    expect(result.bodyHtml).toContain("substantial blog post");
+  });
+
+  it("should fall back to body innerHTML for minimal pages", () => {
+    const result = extractGenericArticle(MOCK_GENERIC_MINIMAL, "https://example.com/page", "Min");
+    expect(result.bodyHtml).toContain("Short.");
+  });
+
+  it("should use pageTitle as fallback title", () => {
+    const html = "<html><head></head><body><p>Content</p></body></html>";
+    const result = extractGenericArticle(html, "https://example.com/", "Page Title Fallback");
+    expect(result.title).toBeTruthy();
   });
 });

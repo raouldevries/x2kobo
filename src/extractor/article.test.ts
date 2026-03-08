@@ -34,13 +34,15 @@ describe("loadArticle", () => {
 
   it("should reject invalid URLs", async () => {
     const { loadArticle } = await import("./article.js");
-    await expect(loadArticle("https://example.com/foo")).rejects.toThrow(
-      "Invalid URL. Please provide an X Article URL.",
+    await expect(loadArticle("ftp://example.com/foo")).rejects.toThrow(
+      "Invalid URL. Please provide a valid HTTP or HTTPS URL.",
     );
   });
 
   it("should return page when article is detected via primary selector", async () => {
-    mockPage.waitForSelector.mockResolvedValueOnce(true).mockRejectedValueOnce(new Error("timeout"));
+    mockPage.waitForSelector
+      .mockResolvedValueOnce(true)
+      .mockRejectedValueOnce(new Error("timeout"));
     const { loadArticle } = await import("./article.js");
     const page = await loadArticle("https://x.com/user/article/123");
     expect(page).toBe(mockPage);
@@ -104,6 +106,23 @@ describe("loadArticle", () => {
     mockPage.goto.mockRejectedValueOnce(new Error("Navigation timeout"));
     const { loadArticle } = await import("./article.js");
     await expect(loadArticle("https://x.com/user/article/123")).rejects.toThrow(
+      "Page loading timed out after 30 seconds.",
+    );
+  });
+
+  it("should accept generic URLs and return page without X detection", async () => {
+    mockPage.url.mockReturnValue("https://example.com/article");
+    const { loadArticle } = await import("./article.js");
+    const page = await loadArticle("https://example.com/article");
+    expect(page).toBe(mockPage);
+    // Should NOT have called waitForSelector (X article detection)
+    expect(mockPage.waitForSelector).not.toHaveBeenCalled();
+  });
+
+  it("should handle navigation timeout for generic URLs", async () => {
+    mockPage.goto.mockRejectedValueOnce(new Error("Navigation timeout"));
+    const { loadArticle } = await import("./article.js");
+    await expect(loadArticle("https://example.com/article")).rejects.toThrow(
       "Page loading timed out after 30 seconds.",
     );
   });

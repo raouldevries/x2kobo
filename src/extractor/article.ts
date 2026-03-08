@@ -2,7 +2,7 @@ import type { Page } from "playwright";
 import { mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
 import { getBrowser } from "./browser.js";
-import { validateArticleUrl } from "../utils/sanitize.js";
+import { validateUrl, isXUrl } from "../utils/sanitize.js";
 import { UserError } from "../utils/errors.js";
 import { paths } from "../config/store.js";
 
@@ -76,7 +76,7 @@ export interface LoadArticleOptions {
 }
 
 export async function loadArticle(url: string, options: LoadArticleOptions = {}): Promise<Page> {
-  validateArticleUrl(url);
+  validateUrl(url);
 
   const context = await getBrowser({
     headless: options.headless ?? true,
@@ -91,7 +91,13 @@ export async function loadArticle(url: string, options: LoadArticleOptions = {})
     throw new UserError(`Page loading timed out after 30 seconds. Debug snapshot: ${snapshot}`);
   }
 
-  // Check for immediate failures before waiting for article content
+  // For non-X URLs, just wait for page load and return
+  if (!isXUrl(url)) {
+    await page.waitForTimeout(3000);
+    return page;
+  }
+
+  // X-specific detection logic
   await page.waitForTimeout(3000);
 
   if (isLoginRedirect(page.url())) {

@@ -118,7 +118,9 @@ async function downloadOne(
 
     const ext = extensionForMime(mime);
     const filename = `img-${String(job.index + 1).padStart(3, "0")}${ext}`;
-    verbose(`Downloaded image ${job.index + 1}: ${filename} (${(data.length / 1024).toFixed(1)} KB)`);
+    verbose(
+      `Downloaded image ${job.index + 1}: ${filename} (${(data.length / 1024).toFixed(1)} KB)`,
+    );
 
     return { job, asset: { filename, data, mediaType: mime } };
   } catch (error: unknown) {

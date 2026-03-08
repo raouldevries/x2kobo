@@ -178,6 +178,99 @@ export function extractMetadata(
   return { title, author, handle, publishDate };
 }
 
+export function extractGenericMetadata(
+  html: string,
+  url: string,
+): { title: string; author: string; handle: string; publishDate: string } {
+  const dom = quietJsdom(html, { url });
+  const doc = dom.window.document;
+
+  let title = "";
+  let author = "";
+  let publishDate = "";
+
+  // Title: og:title → <title> → first <h1> → hostname
+  const ogTitle = doc.querySelector('meta[property="og:title"]');
+  if (ogTitle) {
+    title = ogTitle.getAttribute("content")?.trim() ?? "";
+  }
+  if (!title) {
+    title = doc.querySelector("title")?.textContent?.trim() ?? "";
+  }
+  if (!title) {
+    title = doc.querySelector("h1")?.textContent?.trim() ?? "";
+  }
+  if (!title) {
+    try {
+      title = new URL(url).hostname;
+    } catch {
+      title = "Untitled";
+    }
+  }
+
+  // Author: meta author → article:author → og:site_name → hostname
+  const metaAuthor = doc.querySelector('meta[name="author"]');
+  if (metaAuthor) {
+    author = metaAuthor.getAttribute("content")?.trim() ?? "";
+  }
+  if (!author) {
+    const articleAuthor = doc.querySelector('meta[property="article:author"]');
+    if (articleAuthor) {
+      author = articleAuthor.getAttribute("content")?.trim() ?? "";
+    }
+  }
+  if (!author) {
+    const siteName = doc.querySelector('meta[property="og:site_name"]');
+    if (siteName) {
+      author = siteName.getAttribute("content")?.trim() ?? "";
+    }
+  }
+  if (!author) {
+    try {
+      author = new URL(url).hostname;
+    } catch {
+      author = "Unknown";
+    }
+  }
+
+  // Publish date: article:published_time → <time datetime>
+  const pubTimeMeta = doc.querySelector('meta[property="article:published_time"]');
+  if (pubTimeMeta) {
+    publishDate = pubTimeMeta.getAttribute("content")?.trim() ?? "";
+  }
+  if (!publishDate) {
+    const timeEl = doc.querySelector("time");
+    if (timeEl) {
+      publishDate = timeEl.getAttribute("datetime")?.trim() ?? "";
+    }
+  }
+
+  return { title, author, handle: "", publishDate };
+}
+
+export function extractGenericArticle(html: string, url: string, pageTitle: string): ArticleData {
+  const { title: extractedTitle, author, handle, publishDate } = extractGenericMetadata(html, url);
+
+  let bodyHtml = extractWithReadability(html, url);
+  if (!bodyHtml || bodyHtml.trim().length < 100) {
+    // Fallback: use full body content
+    const dom = quietJsdom(html, { url });
+    bodyHtml = dom.window.document.body?.innerHTML ?? bodyHtml ?? "";
+  }
+
+  const readingTime = calculateReadingTime(bodyHtml);
+
+  return {
+    title: extractedTitle || pageTitle,
+    author,
+    handle,
+    publishDate,
+    bodyHtml,
+    sourceUrl: url,
+    readingTime,
+  };
+}
+
 export function extractArticle(html: string, url: string, pageTitle: string): ArticleData {
   const { title: extractedTitle, author, handle, publishDate } = extractMetadata(html, url);
 

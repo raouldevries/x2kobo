@@ -1,8 +1,9 @@
 import { writeFileSync } from "fs";
 import { resolve } from "path";
 import { loadArticle } from "../extractor/article.js";
-import { extractArticle } from "../extractor/metadata.js";
+import { extractArticle, extractGenericArticle } from "../extractor/metadata.js";
 import { downloadImages } from "../utils/images.js";
+import { isXUrl } from "../utils/sanitize.js";
 import { buildEpub } from "../generator/epub.js";
 import { transformToKepub } from "../generator/kepub.js";
 import { uploadToDropbox } from "../uploader/dropbox.js";
@@ -33,10 +34,13 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
   }
 
   try {
-    // Stage 1: Load article page
-    startSpinner("Loading article...");
+    // Stage 1: Load page
+    const isX = isXUrl(url);
+    startSpinner(isX ? "Loading article..." : "Loading page...");
     verbose(`URL: ${url}`);
-    verbose(`Options: debug=${!!options.debug}, useChrome=${!!options.useChrome}, noUpload=${!!options.noUpload}`);
+    verbose(
+      `Options: debug=${!!options.debug}, useChrome=${!!options.useChrome}, noUpload=${!!options.noUpload}`,
+    );
     const page = await loadArticle(url, {
       useSystemChrome: options.useChrome,
       headless: !options.debug,
@@ -46,11 +50,13 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
     verbose(`Page title: ${pageTitle}`);
     verbose(`Page URL after navigation: ${page.url()}`);
     verbose(`Page content length: ${pageContent.length} chars`);
-    succeedSpinner("Article loaded");
+    succeedSpinner(isX ? "Article loaded" : "Page loaded");
 
     // Stage 2: Extract content
     startSpinner("Extracting content...");
-    const article = extractArticle(pageContent, url, pageTitle);
+    const article = isX
+      ? extractArticle(pageContent, url, pageTitle)
+      : extractGenericArticle(pageContent, url, pageTitle);
     verbose(`Extracted title: ${article.title}`);
     verbose(`Author: ${article.author} (${article.handle})`);
     verbose(`Word count: ~${article.readingTime * 230} words`);
@@ -83,7 +89,8 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
 
     // Stage 5: Upload to Dropbox
     let uploaded = false;
-    const dropboxPath = `/Apps/Rakuten Kobo/X Articles/${epub.filename}`;
+    const dropboxFolder = isX ? "X Articles" : "Articles";
+    const dropboxPath = `/Apps/Rakuten Kobo/${dropboxFolder}/${epub.filename}`;
     if (!options.noUpload) {
       startSpinner("Uploading to Dropbox...");
       try {
