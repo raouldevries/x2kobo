@@ -50,9 +50,19 @@ function preprocessDraftJs(document: Document): void {
   }
 }
 
-function extractWithReadability(html: string, url: string): string | null {
+interface ReadabilityOptions {
+  skipDraftJs?: boolean;
+}
+
+function extractWithReadability(
+  html: string,
+  url: string,
+  options: ReadabilityOptions = {},
+): string | null {
   const dom = quietJsdom(html, { url });
-  preprocessDraftJs(dom.window.document);
+  if (!options.skipDraftJs) {
+    preprocessDraftJs(dom.window.document);
+  }
   const reader = new Readability(dom.window.document);
   const result = reader.parse();
   return result?.content ?? null;
@@ -297,7 +307,7 @@ export function validateExtractedContent(article: ArticleData): void {
 export function extractGenericArticle(html: string, url: string, pageTitle: string): ArticleData {
   const { title: extractedTitle, author, handle, publishDate } = extractGenericMetadata(html, url);
 
-  let bodyHtml = extractWithReadability(html, url);
+  let bodyHtml = extractWithReadability(html, url, { skipDraftJs: true });
   if (!bodyHtml || bodyHtml.trim().length < 100) {
     // Fallback chain: <article> → <main> → <body>
     const dom = quietJsdom(html, { url });

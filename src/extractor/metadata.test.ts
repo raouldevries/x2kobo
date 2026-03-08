@@ -359,6 +359,50 @@ describe("extractGenericArticle fallback chain", () => {
   });
 });
 
+describe("Draft.js preprocessing", () => {
+  const MOCK_DRAFTJS_HTML = `
+<!DOCTYPE html>
+<html>
+<head><title>Draft Test</title></head>
+<body>
+  <article>
+    <div class="public-DraftStyleDefault-block" data-offset-key="abc">
+      <span data-offset-key="abc-0">First paragraph of content that is long enough for extraction purposes and validation checks.</span>
+    </div>
+    <div class="public-DraftStyleDefault-block" data-offset-key="def">
+      <span data-offset-key="def-0">Second paragraph of content that adds more words to pass the minimum word count threshold easily.</span>
+    </div>
+    <div class="public-DraftStyleDefault-block" data-offset-key="ghi">
+      <span data-offset-key="ghi-0">Third paragraph with additional content to make sure this is extracted as valid article content by Readability.</span>
+    </div>
+  </article>
+</body>
+</html>
+`;
+
+  it("should skip Draft.js preprocessing for generic URLs", () => {
+    const result = extractGenericArticle(
+      MOCK_DRAFTJS_HTML,
+      "https://example.com/article",
+      "Draft Test",
+    );
+    // Draft.js data-offset-key attributes should be preserved (not stripped) for generic URLs
+    expect(result.bodyHtml).toContain("data-offset-key");
+  });
+
+  it("should apply Draft.js preprocessing for X URLs", () => {
+    // Use same Draft.js fixture to test the extractWithReadability primary path
+    const result = extractArticle(
+      MOCK_DRAFTJS_HTML,
+      "https://x.com/johndoe/article/123",
+      "Draft Test",
+    );
+    // preprocessDraftJs strips data-offset-key attributes; if skipped they'd remain
+    expect(result.bodyHtml).not.toContain("data-offset-key");
+    expect(result.bodyHtml).not.toContain("public-DraftStyleDefault-block");
+  });
+});
+
 describe("validateExtractedContent", () => {
   const validArticle = {
     title: "A Normal Article",
