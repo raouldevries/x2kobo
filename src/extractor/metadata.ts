@@ -299,9 +299,15 @@ export function extractGenericArticle(html: string, url: string, pageTitle: stri
 
   let bodyHtml = extractWithReadability(html, url);
   if (!bodyHtml || bodyHtml.trim().length < 100) {
-    // Fallback: use full body content
+    // Fallback chain: <article> → <main> → <body>
     const dom = quietJsdom(html, { url });
-    bodyHtml = dom.window.document.body?.innerHTML ?? bodyHtml ?? "";
+    const doc = dom.window.document;
+    bodyHtml =
+      doc.querySelector("article")?.innerHTML ??
+      doc.querySelector("main")?.innerHTML ??
+      doc.body?.innerHTML ??
+      bodyHtml ??
+      "";
   }
 
   const readingTime = calculateReadingTime(bodyHtml);

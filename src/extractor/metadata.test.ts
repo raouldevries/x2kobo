@@ -298,6 +298,67 @@ describe("extractGenericArticle", () => {
   });
 });
 
+// These fixtures use very short content so Readability returns <100 chars,
+// forcing the fallback path to trigger.
+const MOCK_FALLBACK_ARTICLE_TAG = `
+<!DOCTYPE html>
+<html>
+<head><title>Fallback Test</title></head>
+<body>
+  <nav>Navigation links</nav>
+  <article><p>Article content preferred</p></article>
+  <footer>Footer stuff</footer>
+</body>
+</html>
+`;
+
+const MOCK_FALLBACK_MAIN_TAG =
+  "<html><body><nav>N</nav><main><p>Main preferred</p></main></body></html>";
+
+const MOCK_FALLBACK_BODY_ONLY = `
+<!DOCTYPE html>
+<html>
+<head><title>Body Test</title></head>
+<body>
+  <div><p>Body only content here</p></div>
+</body>
+</html>
+`;
+
+describe("extractGenericArticle fallback chain", () => {
+  it("should prefer <article> over full body when Readability fails", () => {
+    const result = extractGenericArticle(
+      MOCK_FALLBACK_ARTICLE_TAG,
+      "https://example.com/page",
+      "Test",
+    );
+    expect(result.bodyHtml).toContain("Article content preferred");
+    expect(result.bodyHtml).not.toContain("Navigation links");
+    expect(result.bodyHtml).not.toContain("Footer stuff");
+  });
+
+  it("should prefer <main> over full body when no <article> exists", () => {
+    const result = extractGenericArticle(
+      MOCK_FALLBACK_MAIN_TAG,
+      "https://example.com/page",
+      "Test",
+    );
+    expect(result.bodyHtml).toContain("Main preferred");
+    // Fallback used <main> innerHTML, not full body
+    expect(result.bodyHtml).not.toContain("<nav>");
+    expect(result.bodyHtml).not.toContain("<footer>");
+  });
+
+  it("should fall back to body when no <article> or <main> exists", () => {
+    const result = extractGenericArticle(
+      MOCK_FALLBACK_BODY_ONLY,
+      "https://example.com/page",
+      "Test",
+    );
+    expect(result.bodyHtml).toContain("Body only content here");
+  });
+});
+
 describe("validateExtractedContent", () => {
   const validArticle = {
     title: "A Normal Article",
