@@ -98,9 +98,8 @@ async function uploadWithRetry(
   }
 }
 
-export async function uploadToDropbox(filePath: string, fileName: string): Promise<void> {
+export async function uploadToDropbox(filePath: string, dropboxPath: string): Promise<void> {
   const accessToken = await getValidToken();
   const fileData = readFileSync(filePath);
-  const dropboxPath = `/Apps/Rakuten Kobo/X Articles/${fileName}`;
   await uploadWithRetry(accessToken, fileData, dropboxPath);
 }

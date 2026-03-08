@@ -99,7 +99,7 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
     if (!options.noUpload) {
       startSpinner("Uploading to Dropbox...");
       try {
-        await uploadToDropbox(outputPath, epub.filename);
+        await uploadToDropbox(outputPath, dropboxPath);
         succeedSpinner("Uploaded to Dropbox");
         uploaded = true;
       } catch (error: unknown) {

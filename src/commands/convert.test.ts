@@ -187,6 +187,36 @@ describe("convert", () => {
     expect(validateExtractedContent).toHaveBeenCalled();
   });
 
+  it("should upload to X Articles folder for X URLs", async () => {
+    const { convert } = await import("./convert.js");
+    await convert("https://x.com/author/article/1", {});
+
+    const { uploadToDropbox } = await import("../uploader/dropbox.js");
+    expect(uploadToDropbox).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("/Apps/Rakuten Kobo/X Articles/"),
+    );
+    expect(uploadToDropbox).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringMatching(/\/Articles\/(?!.*X Articles)/),
+    );
+  });
+
+  it("should upload to Articles folder for generic URLs", async () => {
+    const { convert } = await import("./convert.js");
+    await convert("https://example.com/article", {});
+
+    const { uploadToDropbox } = await import("../uploader/dropbox.js");
+    expect(uploadToDropbox).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("/Apps/Rakuten Kobo/Articles/"),
+    );
+    expect(uploadToDropbox).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("X Articles"),
+    );
+  });
+
   it("should reject when validateExtractedContent throws", async () => {
     const { validateExtractedContent } = await import("../extractor/metadata.js");
     const { UserError } = await import("../utils/errors.js");

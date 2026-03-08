@@ -36,7 +36,7 @@ describe("uploadToDropbox", () => {
 
   it("should upload file to correct Dropbox path", async () => {
     const { uploadToDropbox } = await import("./dropbox.js");
-    await uploadToDropbox("/tmp/test.kepub.epub", "test.kepub.epub");
+    await uploadToDropbox("/tmp/test.kepub.epub", "/Apps/Rakuten Kobo/X Articles/test.kepub.epub");
 
     expect(fetch).toHaveBeenCalledWith(
       "https://content.dropboxapi.com/2/files/upload",
@@ -49,14 +49,17 @@ describe("uploadToDropbox", () => {
     );
   });
 
-  it("should include correct Dropbox-API-Arg header", async () => {
+  it("should use the provided dropboxPath directly in Dropbox-API-Arg header", async () => {
     const { uploadToDropbox } = await import("./dropbox.js");
-    await uploadToDropbox("/tmp/test.kepub.epub", "test.kepub.epub");
+    await uploadToDropbox(
+      "/tmp/test.kepub.epub",
+      "/Apps/Rakuten Kobo/Articles/test.kepub.epub",
+    );
 
     const callArgs = vi.mocked(fetch).mock.calls[0];
     const headers = (callArgs[1] as { headers: Record<string, string> }).headers;
     const apiArg = JSON.parse(headers["Dropbox-API-Arg"]);
-    expect(apiArg.path).toBe("/Apps/Rakuten Kobo/X Articles/test.kepub.epub");
+    expect(apiArg.path).toBe("/Apps/Rakuten Kobo/Articles/test.kepub.epub");
     expect(apiArg.mode).toBe("overwrite");
   });
 
@@ -65,9 +68,9 @@ describe("uploadToDropbox", () => {
     vi.mocked(getDropboxTokens).mockReturnValueOnce(undefined);
 
     const { uploadToDropbox } = await import("./dropbox.js");
-    await expect(uploadToDropbox("/tmp/test.kepub.epub", "test.kepub.epub")).rejects.toThrow(
-      "Run `npx x2kobo auth` to set up",
-    );
+    await expect(
+      uploadToDropbox("/tmp/test.kepub.epub", "/Apps/Rakuten Kobo/X Articles/test.kepub.epub"),
+    ).rejects.toThrow("Run `npx x2kobo auth` to set up");
   });
 
   it("should throw UserError on quota full", async () => {
@@ -83,9 +86,9 @@ describe("uploadToDropbox", () => {
     );
 
     const { uploadToDropbox } = await import("./dropbox.js");
-    await expect(uploadToDropbox("/tmp/test.kepub.epub", "test.kepub.epub")).rejects.toThrow(
-      "Dropbox quota is full",
-    );
+    await expect(
+      uploadToDropbox("/tmp/test.kepub.epub", "/Apps/Rakuten Kobo/X Articles/test.kepub.epub"),
+    ).rejects.toThrow("Dropbox quota is full");
   });
 
   it("should throw UserError on invalid token", async () => {
@@ -101,8 +104,8 @@ describe("uploadToDropbox", () => {
     );
 
     const { uploadToDropbox } = await import("./dropbox.js");
-    await expect(uploadToDropbox("/tmp/test.kepub.epub", "test.kepub.epub")).rejects.toThrow(
-      "Dropbox token is invalid",
-    );
+    await expect(
+      uploadToDropbox("/tmp/test.kepub.epub", "/Apps/Rakuten Kobo/X Articles/test.kepub.epub"),
+    ).rejects.toThrow("Dropbox token is invalid");
   });
 });
