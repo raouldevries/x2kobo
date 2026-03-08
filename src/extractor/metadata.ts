@@ -1,5 +1,6 @@
 import { JSDOM, VirtualConsole } from "jsdom";
 import { Readability } from "@mozilla/readability";
+import { UserError } from "../utils/errors.js";
 
 function quietJsdom(html: string, options: { url?: string; contentType?: string } = {}): JSDOM {
   const virtualConsole = new VirtualConsole();
@@ -246,6 +247,51 @@ export function extractGenericMetadata(
   }
 
   return { title, author, handle: "", publishDate };
+}
+
+// Patterns that indicate the page is an error/block page, not real content.
+// Use tight patterns (full-title or end-anchored) to avoid false positives
+// on articles *about* these topics (e.g., "Rate Limiting Your API").
+const ERROR_PAGE_PATTERNS = [
+  /^too many requests( · \w+)?$/i, // "Too many requests · GitHub"
+  /^access denied$/i,
+  /^403 forbidden$/i,
+  /^404 not found$/i,
+  /^page not found$/i,
+  /^error \d{3}$/i,
+  /^\d{3} [a-z ]{1,30}$/i, // "429 Too Many Requests" — capped length to avoid long titles
+  /^just a moment\.{0,3}$/i, // Cloudflare "Just a moment..." — not "Just a Moment in Time"
+  /^attention required/i, // Cloudflare
+  /^captcha/i,
+  /^rate limited?$/i,
+  /^unauthorized$/i,
+  /^blocked$/i,
+  /^verify you are human/i,
+];
+
+const MIN_WORD_COUNT = 30;
+const MIN_CHAR_COUNT = 100;
+
+export function validateExtractedContent(article: ArticleData): void {
+  // Check for error page titles
+  for (const pattern of ERROR_PAGE_PATTERNS) {
+    if (pattern.test(article.title.trim())) {
+      throw new UserError(
+        `The page returned an error instead of article content: '${article.title}'. Try opening the URL in a browser first.`,
+      );
+    }
+  }
+
+  // Check for sufficient body content.
+  // Use word count for Latin scripts, character count as fallback for CJK and others.
+  const text = article.bodyHtml.replace(/<[^>]+>/g, " ");
+  const visibleText = text.replace(/\s+/g, "");
+  const words = text.split(/\s+/).filter((w) => w.length > 0);
+  if (words.length < MIN_WORD_COUNT && visibleText.length < MIN_CHAR_COUNT) {
+    throw new UserError(
+      `No article content could be extracted from the page (only ${words.length} words / ${visibleText.length} characters found). The page may require login, have anti-bot protection, or contain no readable content.`,
+    );
+  }
 }
 
 export function extractGenericArticle(html: string, url: string, pageTitle: string): ArticleData {

@@ -31,6 +31,7 @@ vi.mock("../extractor/metadata.js", () => ({
     sourceUrl: "https://example.com/article",
     readingTime: 2,
   }),
+  validateExtractedContent: vi.fn(),
 }));
 
 vi.mock("../utils/images.js", () => ({
@@ -176,5 +177,26 @@ describe("convert", () => {
     const { extractGenericArticle } = await import("../extractor/metadata.js");
     expect(extractArticle).toHaveBeenCalled();
     expect(extractGenericArticle).not.toHaveBeenCalled();
+  });
+
+  it("should call validateExtractedContent after extraction", async () => {
+    const { convert } = await import("./convert.js");
+    await convert("https://x.com/author/article/1", { noUpload: true });
+
+    const { validateExtractedContent } = await import("../extractor/metadata.js");
+    expect(validateExtractedContent).toHaveBeenCalled();
+  });
+
+  it("should reject when validateExtractedContent throws", async () => {
+    const { validateExtractedContent } = await import("../extractor/metadata.js");
+    const { UserError } = await import("../utils/errors.js");
+    vi.mocked(validateExtractedContent).mockImplementationOnce(() => {
+      throw new UserError("The page returned an error instead of article content: 'Too many requests'.");
+    });
+
+    const { convert } = await import("./convert.js");
+    await expect(convert("https://example.com/article", { noUpload: true })).rejects.toThrow(
+      "The page returned an error instead of article content",
+    );
   });
 });

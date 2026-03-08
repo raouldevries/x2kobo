@@ -4,6 +4,7 @@ import {
   extractMetadata,
   extractGenericMetadata,
   extractGenericArticle,
+  validateExtractedContent,
 } from "./metadata.js";
 
 const MOCK_ARTICLE_HTML = `
@@ -294,5 +295,151 @@ describe("extractGenericArticle", () => {
     const html = "<html><head></head><body><p>Content</p></body></html>";
     const result = extractGenericArticle(html, "https://example.com/", "Page Title Fallback");
     expect(result.title).toBeTruthy();
+  });
+});
+
+describe("validateExtractedContent", () => {
+  const validArticle = {
+    title: "A Normal Article",
+    author: "Author",
+    handle: "",
+    publishDate: "",
+    bodyHtml:
+      "<p>" + "word ".repeat(50) + "</p>",
+    sourceUrl: "https://example.com/article",
+    readingTime: 1,
+  };
+
+  it("should pass for valid content", () => {
+    expect(() => validateExtractedContent(validArticle)).not.toThrow();
+  });
+
+  it("should throw for empty body", () => {
+    expect(() =>
+      validateExtractedContent({ ...validArticle, bodyHtml: "" }),
+    ).toThrow("No article content could be extracted");
+  });
+
+  it("should throw for body with too few words", () => {
+    expect(() =>
+      validateExtractedContent({ ...validArticle, bodyHtml: "<p>Short text only.</p>" }),
+    ).toThrow("No article content could be extracted");
+  });
+
+  it("should throw for rate limit error page title", () => {
+    expect(() =>
+      validateExtractedContent({ ...validArticle, title: "Too many requests · GitHub" }),
+    ).toThrow("The page returned an error instead of article content");
+  });
+
+  it("should throw for access denied title", () => {
+    expect(() =>
+      validateExtractedContent({ ...validArticle, title: "Access Denied" }),
+    ).toThrow("The page returned an error instead of article content");
+  });
+
+  it("should throw for 404 not found title", () => {
+    expect(() =>
+      validateExtractedContent({ ...validArticle, title: "404 Not Found" }),
+    ).toThrow("The page returned an error instead of article content");
+  });
+
+  it("should throw for captcha/challenge title", () => {
+    expect(() =>
+      validateExtractedContent({ ...validArticle, title: "Just a moment..." }),
+    ).toThrow("The page returned an error instead of article content");
+  });
+
+  it("should throw for forbidden title", () => {
+    expect(() =>
+      validateExtractedContent({ ...validArticle, title: "403 Forbidden" }),
+    ).toThrow("The page returned an error instead of article content");
+  });
+
+  it("should not false-positive on articles about errors", () => {
+    expect(() =>
+      validateExtractedContent({
+        ...validArticle,
+        title: "How to Handle Rate Limiting in Your API",
+      }),
+    ).not.toThrow();
+  });
+
+  it("should not false-positive on articles mentioning 'not found'", () => {
+    expect(() =>
+      validateExtractedContent({
+        ...validArticle,
+        title: "The Lost City: Not Found for 100 Years",
+      }),
+    ).not.toThrow();
+  });
+
+  it("should not false-positive on '100 Days of Code'", () => {
+    expect(() =>
+      validateExtractedContent({ ...validArticle, title: "100 Days of Code: A Retrospective" }),
+    ).not.toThrow();
+  });
+
+  it("should not false-positive on 'Rate Limiting Your API'", () => {
+    expect(() =>
+      validateExtractedContent({ ...validArticle, title: "Rate Limiting Your API" }),
+    ).not.toThrow();
+  });
+
+  it("should not false-positive on 'Blocked: My Story'", () => {
+    expect(() =>
+      validateExtractedContent({ ...validArticle, title: "Blocked: My Story" }),
+    ).not.toThrow();
+  });
+
+  it("should still catch '429 Too Many Requests'", () => {
+    expect(() =>
+      validateExtractedContent({ ...validArticle, title: "429 Too Many Requests" }),
+    ).toThrow("The page returned an error instead of article content");
+  });
+
+  it("should not false-positive on 'Too Many Requests: Rate Limiting Explained'", () => {
+    expect(() =>
+      validateExtractedContent({
+        ...validArticle,
+        title: "Too Many Requests: Rate Limiting Explained",
+      }),
+    ).not.toThrow();
+  });
+
+  it("should not false-positive on 'Just a Moment in Time'", () => {
+    expect(() =>
+      validateExtractedContent({ ...validArticle, title: "Just a Moment in Time" }),
+    ).not.toThrow();
+  });
+
+  it("should catch Cloudflare 'Just a moment...'", () => {
+    expect(() =>
+      validateExtractedContent({ ...validArticle, title: "Just a moment..." }),
+    ).toThrow("The page returned an error instead of article content");
+  });
+
+  it("should not false-positive on '101 Essays That Will Change...'", () => {
+    expect(() =>
+      validateExtractedContent({
+        ...validArticle,
+        title: "101 Essays That Will Change The Way You Think",
+      }),
+    ).not.toThrow();
+  });
+
+  it("should pass for CJK text with enough characters", () => {
+    const cjkBody =
+      "<p>これは日本語の記事です。十分な長さがありますがスペースはほとんどありません。記事の内容は素晴らしいです。もっと読みたいと思います。日本語のテキストです。この記事は非常に興味深い内容を含んでいます。読者の皆様にお楽しみいただけると幸いです。</p>";
+    expect(() =>
+      validateExtractedContent({ ...validArticle, bodyHtml: cjkBody }),
+    ).not.toThrow();
+  });
+
+  it("should reject very short CJK text", () => {
+    const shortCjk = "<p>短い</p>";
+    expect(() =>
+      validateExtractedContent({ ...validArticle, bodyHtml: shortCjk }),
+    ).toThrow("No article content could be extracted");
   });
 });

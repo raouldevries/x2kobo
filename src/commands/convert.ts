@@ -1,7 +1,11 @@
 import { writeFileSync } from "fs";
 import { resolve } from "path";
 import { loadArticle } from "../extractor/article.js";
-import { extractArticle, extractGenericArticle } from "../extractor/metadata.js";
+import {
+  extractArticle,
+  extractGenericArticle,
+  validateExtractedContent,
+} from "../extractor/metadata.js";
 import { downloadImages } from "../utils/images.js";
 import { isXUrl } from "../utils/sanitize.js";
 import { buildEpub } from "../generator/epub.js";
@@ -57,6 +61,7 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
     const article = isX
       ? extractArticle(pageContent, url, pageTitle)
       : extractGenericArticle(pageContent, url, pageTitle);
+    validateExtractedContent(article);
     verbose(`Extracted title: ${article.title}`);
     verbose(`Author: ${article.author} (${article.handle})`);
     verbose(`Word count: ~${article.readingTime * 230} words`);
