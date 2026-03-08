@@ -221,7 +221,9 @@ describe("convert", () => {
     const { validateExtractedContent } = await import("../extractor/metadata.js");
     const { UserError } = await import("../utils/errors.js");
     vi.mocked(validateExtractedContent).mockImplementationOnce(() => {
-      throw new UserError("The page returned an error instead of article content: 'Too many requests'.");
+      throw new UserError(
+        "The page returned an error instead of article content: 'Too many requests'.",
+      );
     });
 
     const { convert } = await import("./convert.js");

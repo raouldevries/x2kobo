@@ -51,10 +51,7 @@ describe("uploadToDropbox", () => {
 
   it("should use the provided dropboxPath directly in Dropbox-API-Arg header", async () => {
     const { uploadToDropbox } = await import("./dropbox.js");
-    await uploadToDropbox(
-      "/tmp/test.kepub.epub",
-      "/Apps/Rakuten Kobo/Articles/test.kepub.epub",
-    );
+    await uploadToDropbox("/tmp/test.kepub.epub", "/Apps/Rakuten Kobo/Articles/test.kepub.epub");
 
     const callArgs = vi.mocked(fetch).mock.calls[0];
     const headers = (callArgs[1] as { headers: Record<string, string> }).headers;

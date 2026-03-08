@@ -409,8 +409,7 @@ describe("validateExtractedContent", () => {
     author: "Author",
     handle: "",
     publishDate: "",
-    bodyHtml:
-      "<p>" + "word ".repeat(50) + "</p>",
+    bodyHtml: "<p>" + "word ".repeat(50) + "</p>",
     sourceUrl: "https://example.com/article",
     readingTime: 1,
   };
@@ -420,9 +419,9 @@ describe("validateExtractedContent", () => {
   });
 
   it("should throw for empty body", () => {
-    expect(() =>
-      validateExtractedContent({ ...validArticle, bodyHtml: "" }),
-    ).toThrow("No article content could be extracted");
+    expect(() => validateExtractedContent({ ...validArticle, bodyHtml: "" })).toThrow(
+      "No article content could be extracted",
+    );
   });
 
   it("should throw for body with too few words", () => {
@@ -438,27 +437,27 @@ describe("validateExtractedContent", () => {
   });
 
   it("should throw for access denied title", () => {
-    expect(() =>
-      validateExtractedContent({ ...validArticle, title: "Access Denied" }),
-    ).toThrow("The page returned an error instead of article content");
+    expect(() => validateExtractedContent({ ...validArticle, title: "Access Denied" })).toThrow(
+      "The page returned an error instead of article content",
+    );
   });
 
   it("should throw for 404 not found title", () => {
-    expect(() =>
-      validateExtractedContent({ ...validArticle, title: "404 Not Found" }),
-    ).toThrow("The page returned an error instead of article content");
+    expect(() => validateExtractedContent({ ...validArticle, title: "404 Not Found" })).toThrow(
+      "The page returned an error instead of article content",
+    );
   });
 
   it("should throw for captcha/challenge title", () => {
-    expect(() =>
-      validateExtractedContent({ ...validArticle, title: "Just a moment..." }),
-    ).toThrow("The page returned an error instead of article content");
+    expect(() => validateExtractedContent({ ...validArticle, title: "Just a moment..." })).toThrow(
+      "The page returned an error instead of article content",
+    );
   });
 
   it("should throw for forbidden title", () => {
-    expect(() =>
-      validateExtractedContent({ ...validArticle, title: "403 Forbidden" }),
-    ).toThrow("The page returned an error instead of article content");
+    expect(() => validateExtractedContent({ ...validArticle, title: "403 Forbidden" })).toThrow(
+      "The page returned an error instead of article content",
+    );
   });
 
   it("should not false-positive on articles about errors", () => {
@@ -519,9 +518,9 @@ describe("validateExtractedContent", () => {
   });
 
   it("should catch Cloudflare 'Just a moment...'", () => {
-    expect(() =>
-      validateExtractedContent({ ...validArticle, title: "Just a moment..." }),
-    ).toThrow("The page returned an error instead of article content");
+    expect(() => validateExtractedContent({ ...validArticle, title: "Just a moment..." })).toThrow(
+      "The page returned an error instead of article content",
+    );
   });
 
   it("should not false-positive on '101 Essays That Will Change...'", () => {
@@ -536,15 +535,13 @@ describe("validateExtractedContent", () => {
   it("should pass for CJK text with enough characters", () => {
     const cjkBody =
       "<p>これは日本語の記事です。十分な長さがありますがスペースはほとんどありません。記事の内容は素晴らしいです。もっと読みたいと思います。日本語のテキストです。この記事は非常に興味深い内容を含んでいます。読者の皆様にお楽しみいただけると幸いです。</p>";
-    expect(() =>
-      validateExtractedContent({ ...validArticle, bodyHtml: cjkBody }),
-    ).not.toThrow();
+    expect(() => validateExtractedContent({ ...validArticle, bodyHtml: cjkBody })).not.toThrow();
   });
 
   it("should reject very short CJK text", () => {
     const shortCjk = "<p>短い</p>";
-    expect(() =>
-      validateExtractedContent({ ...validArticle, bodyHtml: shortCjk }),
-    ).toThrow("No article content could be extracted");
+    expect(() => validateExtractedContent({ ...validArticle, bodyHtml: shortCjk })).toThrow(
+      "No article content could be extracted",
+    );
   });
 });
