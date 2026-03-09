@@ -315,12 +315,72 @@ function extractGitHubRichText(html: string): string | null {
         payload?: { codeViewBlobRoute?: { richText?: string } };
       };
       const richText = json.payload?.codeViewBlobRoute?.richText;
-      if (richText && richText.length > 100) return richText;
+      if (richText && richText.length > 100) return cleanGitHubHtml(richText);
     } catch {
       // Not valid JSON, skip
     }
   }
   return null;
+}
+
+function cleanGitHubHtml(html: string): string {
+  const dom = quietJsdom(html);
+  const doc = dom.window.document;
+
+  // Remove SVG permalink icons from headings
+  for (const svg of doc.querySelectorAll("svg")) {
+    const anchor = svg.closest("a");
+    if (anchor) {
+      anchor.remove();
+    } else {
+      svg.remove();
+    }
+  }
+
+  // Unwrap custom elements Kobo doesn't understand
+  for (const tag of doc.querySelectorAll("markdown-accessiblity-table, g-emoji")) {
+    tag.replaceWith(...Array.from(tag.childNodes));
+  }
+
+  // Remove the YAML frontmatter table (first table if it has a "title" header)
+  const firstTable = doc.querySelector("table");
+  if (firstTable) {
+    const firstTh = firstTable.querySelector("th");
+    if (firstTh?.textContent?.trim().toLowerCase() === "title") {
+      firstTable.remove();
+    }
+  }
+
+  // Strip dir="auto" and tabindex attributes
+  for (const el of doc.querySelectorAll("[dir], [tabindex]")) {
+    el.removeAttribute("dir");
+    el.removeAttribute("tabindex");
+  }
+
+  // Unwrap unnecessary wrapper divs (markdown-heading, snippet-clipboard-content)
+  for (const div of doc.querySelectorAll("div.markdown-heading")) {
+    div.replaceWith(...Array.from(div.childNodes));
+  }
+
+  // Simplify code blocks: extract plain text from syntax-highlighted spans
+  for (const pre of doc.querySelectorAll("pre")) {
+    const wrapper = pre.closest("div.highlight, div.snippet-clipboard-content, div.notranslate");
+    // Get the plain text from data-snippet-clipboard-copy-content if available
+    const plainText = wrapper?.getAttribute("data-snippet-clipboard-copy-content");
+    if (plainText) {
+      const newPre = doc.createElement("pre");
+      const code = doc.createElement("code");
+      code.textContent = plainText;
+      newPre.appendChild(code);
+      if (wrapper) {
+        wrapper.replaceWith(newPre);
+      } else {
+        pre.replaceWith(newPre);
+      }
+    }
+  }
+
+  return doc.body.innerHTML;
 }
 
 export function extractGenericArticle(html: string, url: string, pageTitle: string): ArticleData {
