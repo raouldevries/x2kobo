@@ -15,12 +15,18 @@ const program = new Command();
 
 program
   .name("x2kobo")
-  .description("Convert X (Twitter) Articles into KEPUB files for Kobo e-readers")
+  .description("Convert web articles into KEPUB files for Kobo e-readers")
   .version("0.1.0");
 
 function resolveConvertOptions(
   cmd: Command,
-  options: { upload: boolean; useChrome?: boolean; output?: string; verbose?: boolean; debug?: boolean },
+  options: {
+    upload: boolean;
+    useChrome?: boolean;
+    output?: string;
+    verbose?: boolean;
+    debug?: boolean;
+  },
 ) {
   const defaults = getUserDefaults();
   const cliOptions: Record<string, unknown> = {};
@@ -47,8 +53,8 @@ function resolveConvertOptions(
 
 const convertCmd = program
   .command("convert")
-  .description("Convert X Article URL(s) to KEPUB file(s)")
-  .argument("<urls...>", "X Article URL(s) to convert")
+  .description("Convert URL(s) to KEPUB file(s)")
+  .argument("<urls...>", "URL(s) to convert")
   .option("--no-upload", "Skip Dropbox upload")
   .option("--use-chrome", "Use your system Chrome profile (Chrome must be closed)")
   .option("-o, --output <path>", "Output file path")
@@ -57,7 +63,13 @@ const convertCmd = program
   .action(
     async (
       urls: string[],
-      options: { upload: boolean; useChrome?: boolean; output?: string; verbose?: boolean; debug?: boolean },
+      options: {
+        upload: boolean;
+        useChrome?: boolean;
+        output?: string;
+        verbose?: boolean;
+        debug?: boolean;
+      },
     ) => {
       const merged = resolveConvertOptions(convertCmd, options);
       if (urls.length === 1) {
@@ -70,7 +82,7 @@ const convertCmd = program
 
 // Default command: treat arguments as URL(s) for convert
 program
-  .argument("[urls...]", "X Article URL(s) to convert (shortcut for `convert`)")
+  .argument("[urls...]", "URL(s) to convert (shortcut for `convert`)")
   .option("--no-upload", "Skip Dropbox upload")
   .option("--use-chrome", "Use your system Chrome profile (Chrome must be closed)")
   .option("-o, --output <path>", "Output file path")
@@ -79,7 +91,13 @@ program
   .action(
     async (
       urls: string[],
-      options: { upload: boolean; useChrome?: boolean; output?: string; verbose?: boolean; debug?: boolean },
+      options: {
+        upload: boolean;
+        useChrome?: boolean;
+        output?: string;
+        verbose?: boolean;
+        debug?: boolean;
+      },
     ) => {
       const filtered = urls.filter((u) => !u.startsWith("-"));
       if (filtered.length === 0) return;
@@ -102,9 +120,7 @@ program.command("auth").description("Set up Dropbox integration with OAuth PKCE"
 
 program.command("status").description("Show login and Dropbox connection status").action(status);
 
-const configCmd = program
-  .command("config")
-  .description("Manage default options");
+const configCmd = program.command("config").description("Manage default options");
 
 configCmd
   .command("set")
@@ -119,15 +135,9 @@ configCmd
   .argument("<key>", "Option name")
   .action(configGet);
 
-configCmd
-  .command("list")
-  .description("Show all default options")
-  .action(configList);
+configCmd.command("list").description("Show all default options").action(configList);
 
-configCmd
-  .command("reset")
-  .description("Clear all default options")
-  .action(configReset);
+configCmd.command("reset").description("Clear all default options").action(configReset);
 
 async function main(): Promise<void> {
   await program.parseAsync(process.argv);

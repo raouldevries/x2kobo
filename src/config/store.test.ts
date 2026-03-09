@@ -60,7 +60,15 @@ describe("saveUserDefaults", () => {
 
   it("should persist defaults without clobbering dropbox tokens", async () => {
     const fs = await import("fs");
-    const existingConfig = { dropbox: { accessToken: "tok", refreshToken: "ref", expiresAt: 123, appKey: "k", appSecret: "s" } };
+    const existingConfig = {
+      dropbox: {
+        accessToken: "tok",
+        refreshToken: "ref",
+        expiresAt: 123,
+        appKey: "k",
+        appSecret: "s",
+      },
+    };
     vi.mocked(fs.readFileSync).mockReturnValue(JSON.stringify(existingConfig));
 
     const { saveUserDefaults } = await import("./store.js");

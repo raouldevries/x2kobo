@@ -1,8 +1,15 @@
 import { writeFileSync } from "fs";
 import { resolve } from "path";
+import type { Page } from "playwright";
 import { loadArticle } from "../extractor/article.js";
-import { extractArticle } from "../extractor/metadata.js";
-import { downloadImages } from "../utils/images.js";
+import { fetchArticle } from "../extractor/fetch.js";
+import {
+  extractArticle,
+  extractGenericArticle,
+  validateExtractedContent,
+} from "../extractor/metadata.js";
+import { downloadImages, httpClientFromFetch, type HttpClient } from "../utils/images.js";
+import { isXUrl } from "../utils/sanitize.js";
 import { buildEpub } from "../generator/epub.js";
 import { transformToKepub } from "../generator/kepub.js";
 import { uploadToDropbox } from "../uploader/dropbox.js";
@@ -33,29 +40,68 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
   }
 
   try {
-    // Stage 1: Load article page
-    startSpinner("Loading article...");
+    // Stage 1: Load page
+    const isX = isXUrl(url);
+    startSpinner(isX ? "Loading article..." : "Loading page...");
     verbose(`URL: ${url}`);
-    verbose(`Options: debug=${!!options.debug}, useChrome=${!!options.useChrome}, noUpload=${!!options.noUpload}`);
-    const page = await loadArticle(url, {
-      useSystemChrome: options.useChrome,
-      headless: !options.debug,
-    });
-    const pageContent = await page.content();
-    const pageTitle = await page.title();
+    verbose(
+      `Options: debug=${!!options.debug}, useChrome=${!!options.useChrome}, noUpload=${!!options.noUpload}`,
+    );
+
+    let pageContent: string;
+    let pageTitle: string;
+    let pageUrl: string;
+    let imageClient: HttpClient;
+    let page: Page | null = null;
+
+    if (isX) {
+      // X URLs always need Playwright for session cookies
+      page = await loadArticle(url, {
+        useSystemChrome: options.useChrome,
+        headless: !options.debug,
+      });
+      pageContent = await page.content();
+      pageTitle = await page.title();
+      pageUrl = page.url();
+      imageClient = page.context() as unknown as HttpClient;
+    } else {
+      // Generic URLs: try HTTP fetch first, fall back to Playwright
+      try {
+        const result = await fetchArticle(url);
+        pageContent = result.html;
+        pageTitle = result.title;
+        pageUrl = result.url;
+        imageClient = httpClientFromFetch();
+        verbose("Loaded via HTTP fetch (no browser needed)");
+      } catch (fetchError: unknown) {
+        const msg = fetchError instanceof Error ? fetchError.message : String(fetchError);
+        verbose(`Fetch failed (${msg}), falling back to browser...`);
+        page = await loadArticle(url, {
+          useSystemChrome: options.useChrome,
+          headless: !options.debug,
+        });
+        pageContent = await page.content();
+        pageTitle = await page.title();
+        pageUrl = page.url();
+        imageClient = page.context() as unknown as HttpClient;
+      }
+    }
+
     verbose(`Page title: ${pageTitle}`);
-    verbose(`Page URL after navigation: ${page.url()}`);
+    verbose(`Page URL after navigation: ${pageUrl}`);
     verbose(`Page content length: ${pageContent.length} chars`);
-    succeedSpinner("Article loaded");
+    succeedSpinner(isX ? "Article loaded" : "Page loaded");
 
     // Stage 2: Extract content
     startSpinner("Extracting content...");
-    const article = extractArticle(pageContent, url, pageTitle);
+    const article = isX
+      ? extractArticle(pageContent, url, pageTitle)
+      : extractGenericArticle(pageContent, url, pageTitle);
+    validateExtractedContent(article);
     verbose(`Extracted title: ${article.title}`);
     verbose(`Author: ${article.author} (${article.handle})`);
     verbose(`Word count: ~${article.readingTime * 230} words`);
-    const context = page.context();
-    const imageResult = await downloadImages(article.bodyHtml, context);
+    const imageResult = await downloadImages(article.bodyHtml, imageClient);
     article.bodyHtml = imageResult.html;
     succeedSpinner(
       `Extracted: ${article.title} (${article.readingTime} min read, ${imageResult.totalDownloaded} images)`,
@@ -83,11 +129,12 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
 
     // Stage 5: Upload to Dropbox
     let uploaded = false;
-    const dropboxPath = `/Apps/Rakuten Kobo/X Articles/${epub.filename}`;
+    const dropboxFolder = isX ? "X Articles" : "Articles";
+    const dropboxPath = `/Apps/Rakuten Kobo/${dropboxFolder}/${epub.filename}`;
     if (!options.noUpload) {
       startSpinner("Uploading to Dropbox...");
       try {
-        await uploadToDropbox(outputPath, epub.filename);
+        await uploadToDropbox(outputPath, dropboxPath);
         succeedSpinner("Uploaded to Dropbox");
         uploaded = true;
       } catch (error: unknown) {
@@ -99,10 +146,12 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
       }
     }
 
-    if (options.keepBrowserOpen) {
-      await page.close();
-    } else {
-      await closeBrowser();
+    if (page) {
+      if (options.keepBrowserOpen) {
+        await page.close();
+      } else {
+        await closeBrowser();
+      }
     }
 
     printSummary({
@@ -118,9 +167,7 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
     });
   } catch (error: unknown) {
     stopSpinner();
-    if (!options.keepBrowserOpen) {
-      await closeBrowser();
-    }
+    await closeBrowser();
     throw error;
   }
 }

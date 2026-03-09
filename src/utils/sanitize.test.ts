@@ -1,32 +1,63 @@
 import { describe, it, expect } from "vitest";
-import { validateArticleUrl, sanitizeFilename, buildOutputFilename } from "./sanitize.js";
+import { validateUrl, isXUrl, sanitizeFilename, buildOutputFilename } from "./sanitize.js";
 
-describe("validateArticleUrl", () => {
+describe("validateUrl", () => {
   it("should accept valid x.com URLs", () => {
-    const url = validateArticleUrl("https://x.com/user/article/123");
+    const url = validateUrl("https://x.com/user/article/123");
     expect(url.hostname).toBe("x.com");
   });
 
   it("should accept valid twitter.com URLs", () => {
-    const url = validateArticleUrl("https://twitter.com/user/article/123");
+    const url = validateUrl("https://twitter.com/user/article/123");
     expect(url.hostname).toBe("twitter.com");
   });
 
-  it("should accept www.x.com URLs", () => {
-    const url = validateArticleUrl("https://www.x.com/user/article/123");
-    expect(url.hostname).toBe("www.x.com");
+  it("should accept any valid HTTPS URL", () => {
+    const url = validateUrl("https://example.com/article");
+    expect(url.hostname).toBe("example.com");
+  });
+
+  it("should accept HTTP URLs", () => {
+    const url = validateUrl("http://example.com/page");
+    expect(url.protocol).toBe("http:");
   });
 
   it("should throw UserError for invalid URLs", () => {
-    expect(() => validateArticleUrl("not-a-url")).toThrow(
-      "Invalid URL. Please provide an X Article URL.",
+    expect(() => validateUrl("not-a-url")).toThrow(
+      "Invalid URL. Please provide a valid HTTP or HTTPS URL.",
     );
   });
 
-  it("should throw UserError for non-X URLs", () => {
-    expect(() => validateArticleUrl("https://example.com/article")).toThrow(
-      "Invalid URL. Please provide an X Article URL.",
+  it("should throw UserError for non-HTTP protocols", () => {
+    expect(() => validateUrl("ftp://example.com/file")).toThrow(
+      "Invalid URL. Please provide a valid HTTP or HTTPS URL.",
     );
+  });
+});
+
+describe("isXUrl", () => {
+  it("should return true for x.com", () => {
+    expect(isXUrl("https://x.com/user/article/123")).toBe(true);
+  });
+
+  it("should return true for twitter.com", () => {
+    expect(isXUrl("https://twitter.com/user/article/123")).toBe(true);
+  });
+
+  it("should return true for www.x.com", () => {
+    expect(isXUrl("https://www.x.com/user/article/123")).toBe(true);
+  });
+
+  it("should return false for other domains", () => {
+    expect(isXUrl("https://example.com/article")).toBe(false);
+  });
+
+  it("should return false for invalid URLs", () => {
+    expect(isXUrl("not-a-url")).toBe(false);
+  });
+
+  it("should accept URL objects", () => {
+    expect(isXUrl(new URL("https://x.com/user"))).toBe(true);
   });
 });
 
@@ -50,7 +81,7 @@ describe("sanitizeFilename", () => {
 });
 
 describe("buildOutputFilename", () => {
-  it("should build correct filename format", () => {
+  it("should build correct filename format with handle", () => {
     const filename = buildOutputFilename(
       "My Article",
       "@johndoe",
@@ -63,5 +94,16 @@ describe("buildOutputFilename", () => {
   it("should use current date when no date provided", () => {
     const filename = buildOutputFilename("Test", "@user", "https://x.com/user/1");
     expect(filename).toMatch(/^\d{4}-\d{2}-\d{2}-test-user-.+\.kepub\.epub$/);
+  });
+
+  it("should omit handle from filename when handle is empty", () => {
+    const filename = buildOutputFilename(
+      "Generic Article",
+      "",
+      "https://example.com/article",
+      "2026-03-01T00:00:00Z",
+    );
+    expect(filename).toMatch(/^2026-03-01-generic-article-.+\.kepub\.epub$/);
+    expect(filename).not.toContain("--");
   });
 });

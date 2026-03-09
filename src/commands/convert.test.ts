@@ -12,6 +12,14 @@ vi.mock("../extractor/article.js", () => ({
   loadArticle: vi.fn().mockResolvedValue(mockPage),
 }));
 
+vi.mock("../extractor/fetch.js", () => ({
+  fetchArticle: vi.fn().mockResolvedValue({
+    html: "<html><body><p>Fetched content</p></body></html>",
+    url: "https://example.com/article",
+    title: "Fetched Article",
+  }),
+}));
+
 vi.mock("../extractor/metadata.js", () => ({
   extractArticle: vi.fn().mockReturnValue({
     title: "Test Article",
@@ -22,6 +30,16 @@ vi.mock("../extractor/metadata.js", () => ({
     sourceUrl: "https://x.com/author/article/1",
     readingTime: 3,
   }),
+  extractGenericArticle: vi.fn().mockReturnValue({
+    title: "Generic Article",
+    author: "example.com",
+    handle: "",
+    publishDate: "",
+    bodyHtml: "<p>Generic content</p>",
+    sourceUrl: "https://example.com/article",
+    readingTime: 2,
+  }),
+  validateExtractedContent: vi.fn(),
 }));
 
 vi.mock("../utils/images.js", () => ({
@@ -96,7 +114,10 @@ describe("convert", () => {
     const { loadArticle } = await import("../extractor/article.js");
     const { extractArticle } = await import("../extractor/metadata.js");
 
-    expect(loadArticle).toHaveBeenCalledWith("https://x.com/author/article/1", { useSystemChrome: undefined, headless: true });
+    expect(loadArticle).toHaveBeenCalledWith("https://x.com/author/article/1", {
+      useSystemChrome: undefined,
+      headless: true,
+    });
     expect(extractArticle).toHaveBeenCalled();
   });
 
@@ -144,5 +165,78 @@ describe("convert", () => {
     const { closeBrowser } = await import("../extractor/browser.js");
     expect(closeBrowser).not.toHaveBeenCalled();
     expect(mockPage.close).toHaveBeenCalled();
+  });
+
+  it("should use extractGenericArticle for non-X URLs", async () => {
+    const { convert } = await import("./convert.js");
+    await convert("https://example.com/article", { noUpload: true });
+
+    const { extractGenericArticle } = await import("../extractor/metadata.js");
+    const { extractArticle } = await import("../extractor/metadata.js");
+    expect(extractGenericArticle).toHaveBeenCalled();
+    expect(extractArticle).not.toHaveBeenCalled();
+  });
+
+  it("should use extractArticle for X URLs", async () => {
+    const { convert } = await import("./convert.js");
+    await convert("https://x.com/author/article/1", { noUpload: true });
+
+    const { extractArticle } = await import("../extractor/metadata.js");
+    const { extractGenericArticle } = await import("../extractor/metadata.js");
+    expect(extractArticle).toHaveBeenCalled();
+    expect(extractGenericArticle).not.toHaveBeenCalled();
+  });
+
+  it("should call validateExtractedContent after extraction", async () => {
+    const { convert } = await import("./convert.js");
+    await convert("https://x.com/author/article/1", { noUpload: true });
+
+    const { validateExtractedContent } = await import("../extractor/metadata.js");
+    expect(validateExtractedContent).toHaveBeenCalled();
+  });
+
+  it("should upload to X Articles folder for X URLs", async () => {
+    const { convert } = await import("./convert.js");
+    await convert("https://x.com/author/article/1", {});
+
+    const { uploadToDropbox } = await import("../uploader/dropbox.js");
+    expect(uploadToDropbox).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("/Apps/Rakuten Kobo/X Articles/"),
+    );
+    expect(uploadToDropbox).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringMatching(/\/Articles\/(?!.*X Articles)/),
+    );
+  });
+
+  it("should upload to Articles folder for generic URLs", async () => {
+    const { convert } = await import("./convert.js");
+    await convert("https://example.com/article", {});
+
+    const { uploadToDropbox } = await import("../uploader/dropbox.js");
+    expect(uploadToDropbox).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("/Apps/Rakuten Kobo/Articles/"),
+    );
+    expect(uploadToDropbox).not.toHaveBeenCalledWith(
+      expect.any(String),
+      expect.stringContaining("X Articles"),
+    );
+  });
+
+  it("should reject when validateExtractedContent throws", async () => {
+    const { validateExtractedContent } = await import("../extractor/metadata.js");
+    const { UserError } = await import("../utils/errors.js");
+    vi.mocked(validateExtractedContent).mockImplementationOnce(() => {
+      throw new UserError(
+        "The page returned an error instead of article content: 'Too many requests'.",
+      );
+    });
+
+    const { convert } = await import("./convert.js");
+    await expect(convert("https://example.com/article", { noUpload: true })).rejects.toThrow(
+      "The page returned an error instead of article content",
+    );
   });
 });

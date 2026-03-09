@@ -1,8 +1,48 @@
-import type { BrowserContext } from "playwright";
 import { JSDOM } from "jsdom";
 import { verbose } from "./logger.js";
 
 const CONCURRENCY = 4;
+
+const USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
+
+export interface HttpClient {
+  request: {
+    get(url: string): Promise<{
+      ok(): boolean;
+      status(): number;
+      body(): Promise<Buffer>;
+      headers(): Record<string, string>;
+    }>;
+  };
+}
+
+export function httpClientFromFetch(): HttpClient {
+  return {
+    request: {
+      async get(url: string) {
+        const response = await fetch(url, {
+          headers: { "User-Agent": USER_AGENT },
+          redirect: "follow",
+          signal: AbortSignal.timeout(30_000),
+        });
+        const buffer = Buffer.from(await response.arrayBuffer());
+        return {
+          ok: () => response.ok,
+          status: () => response.status,
+          body: async () => buffer,
+          headers: () => {
+            const h: Record<string, string> = {};
+            response.headers.forEach((v, k) => {
+              h[k] = v;
+            });
+            return h;
+          },
+        };
+      },
+    },
+  };
+}
 
 export interface ImageAsset {
   filename: string;
@@ -90,13 +130,13 @@ interface DownloadJob {
 
 async function downloadOne(
   job: DownloadJob,
-  context: BrowserContext,
+  client: HttpClient,
 ): Promise<{ job: DownloadJob; asset: ImageAsset } | null> {
   const downloadUrl = transformTwimgUrl(job.src);
   verbose(`Downloading image ${job.index + 1}: ${downloadUrl}`);
 
   try {
-    const response = await context.request.get(downloadUrl);
+    const response = await client.request.get(downloadUrl);
     if (!response.ok()) {
       verbose(`Failed (${response.status()}): ${downloadUrl}`);
       return null;
@@ -118,7 +158,9 @@ async function downloadOne(
 
     const ext = extensionForMime(mime);
     const filename = `img-${String(job.index + 1).padStart(3, "0")}${ext}`;
-    verbose(`Downloaded image ${job.index + 1}: ${filename} (${(data.length / 1024).toFixed(1)} KB)`);
+    verbose(
+      `Downloaded image ${job.index + 1}: ${filename} (${(data.length / 1024).toFixed(1)} KB)`,
+    );
 
     return { job, asset: { filename, data, mediaType: mime } };
   } catch (error: unknown) {
@@ -128,7 +170,7 @@ async function downloadOne(
   }
 }
 
-export async function downloadImages(html: string, context: BrowserContext): Promise<ImageResult> {
+export async function downloadImages(html: string, client: HttpClient): Promise<ImageResult> {
   const dom = new JSDOM(html);
   const doc = dom.window.document;
   const imgElements = doc.querySelectorAll("img");
@@ -181,7 +223,7 @@ export async function downloadImages(html: string, context: BrowserContext): Pro
 
   for (let i = 0; i < uniqueJobs.length; i += CONCURRENCY) {
     const batch = uniqueJobs.slice(i, i + CONCURRENCY);
-    const results = await Promise.all(batch.map((job) => downloadOne(job, context)));
+    const results = await Promise.all(batch.map((job) => downloadOne(job, client)));
 
     for (let j = 0; j < results.length; j++) {
       const result = results[j];

@@ -8,7 +8,7 @@ describe("CLI", () => {
   it("should print help with --help flag", () => {
     const output = execFileSync("node", [cliPath, "--help"], { encoding: "utf-8" });
     expect(output).toContain("x2kobo");
-    expect(output).toContain("Convert X (Twitter) Articles into KEPUB files");
+    expect(output).toContain("Convert web articles into KEPUB files");
   });
 
   it("should print version with --version flag", () => {

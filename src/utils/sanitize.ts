@@ -1,20 +1,29 @@
 import { UserError } from "./errors.js";
 
-const VALID_HOSTS = ["x.com", "twitter.com", "www.x.com", "www.twitter.com"];
+const X_HOSTS = ["x.com", "twitter.com", "www.x.com", "www.twitter.com"];
 
-export function validateArticleUrl(url: string): URL {
+export function validateUrl(url: string): URL {
   let parsed: URL;
   try {
     parsed = new URL(url);
   } catch {
-    throw new UserError("Invalid URL. Please provide an X Article URL.");
+    throw new UserError("Invalid URL. Please provide a valid HTTP or HTTPS URL.");
   }
 
-  if (!VALID_HOSTS.includes(parsed.hostname)) {
-    throw new UserError("Invalid URL. Please provide an X Article URL.");
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new UserError("Invalid URL. Please provide a valid HTTP or HTTPS URL.");
   }
 
   return parsed;
+}
+
+export function isXUrl(url: string | URL): boolean {
+  try {
+    const parsed = typeof url === "string" ? new URL(url) : url;
+    return X_HOSTS.includes(parsed.hostname);
+  } catch {
+    return false;
+  }
 }
 
 export function sanitizeFilename(title: string): string {
@@ -39,7 +48,10 @@ export function buildOutputFilename(
   const sanitizedTitle = sanitizeFilename(title);
   const cleanHandle = handle.replace("@", "").toLowerCase();
   const shortHash = simpleHash(sourceUrl);
-  return `${dateStr}-${sanitizedTitle}-${cleanHandle}-${shortHash}.kepub.epub`;
+  if (cleanHandle) {
+    return `${dateStr}-${sanitizedTitle}-${cleanHandle}-${shortHash}.kepub.epub`;
+  }
+  return `${dateStr}-${sanitizedTitle}-${shortHash}.kepub.epub`;
 }
 
 function simpleHash(str: string): string {

@@ -1,4 +1,9 @@
-import { getUserDefaults, saveUserDefaults, VALID_DEFAULT_KEYS, type UserDefaults } from "../config/store.js";
+import {
+  getUserDefaults,
+  saveUserDefaults,
+  VALID_DEFAULT_KEYS,
+  type UserDefaults,
+} from "../config/store.js";
 
 function parseValue(key: keyof UserDefaults, raw: string): boolean | string {
   if (key === "output") return raw;
