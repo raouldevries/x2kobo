@@ -1,12 +1,14 @@
 import { writeFileSync } from "fs";
 import { resolve } from "path";
+import type { Page } from "playwright";
 import { loadArticle } from "../extractor/article.js";
+import { fetchArticle } from "../extractor/fetch.js";
 import {
   extractArticle,
   extractGenericArticle,
   validateExtractedContent,
 } from "../extractor/metadata.js";
-import { downloadImages } from "../utils/images.js";
+import { downloadImages, httpClientFromFetch, type HttpClient } from "../utils/images.js";
 import { isXUrl } from "../utils/sanitize.js";
 import { buildEpub } from "../generator/epub.js";
 import { transformToKepub } from "../generator/kepub.js";
@@ -45,14 +47,48 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
     verbose(
       `Options: debug=${!!options.debug}, useChrome=${!!options.useChrome}, noUpload=${!!options.noUpload}`,
     );
-    const page = await loadArticle(url, {
-      useSystemChrome: options.useChrome,
-      headless: !options.debug,
-    });
-    const pageContent = await page.content();
-    const pageTitle = await page.title();
+
+    let pageContent: string;
+    let pageTitle: string;
+    let pageUrl: string;
+    let imageClient: HttpClient;
+    let page: Page | null = null;
+
+    if (isX) {
+      // X URLs always need Playwright for session cookies
+      page = await loadArticle(url, {
+        useSystemChrome: options.useChrome,
+        headless: !options.debug,
+      });
+      pageContent = await page.content();
+      pageTitle = await page.title();
+      pageUrl = page.url();
+      imageClient = page.context() as unknown as HttpClient;
+    } else {
+      // Generic URLs: try HTTP fetch first, fall back to Playwright
+      try {
+        const result = await fetchArticle(url);
+        pageContent = result.html;
+        pageTitle = result.title;
+        pageUrl = result.url;
+        imageClient = httpClientFromFetch();
+        verbose("Loaded via HTTP fetch (no browser needed)");
+      } catch (fetchError: unknown) {
+        const msg = fetchError instanceof Error ? fetchError.message : String(fetchError);
+        verbose(`Fetch failed (${msg}), falling back to browser...`);
+        page = await loadArticle(url, {
+          useSystemChrome: options.useChrome,
+          headless: !options.debug,
+        });
+        pageContent = await page.content();
+        pageTitle = await page.title();
+        pageUrl = page.url();
+        imageClient = page.context() as unknown as HttpClient;
+      }
+    }
+
     verbose(`Page title: ${pageTitle}`);
-    verbose(`Page URL after navigation: ${page.url()}`);
+    verbose(`Page URL after navigation: ${pageUrl}`);
     verbose(`Page content length: ${pageContent.length} chars`);
     succeedSpinner(isX ? "Article loaded" : "Page loaded");
 
@@ -65,8 +101,7 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
     verbose(`Extracted title: ${article.title}`);
     verbose(`Author: ${article.author} (${article.handle})`);
     verbose(`Word count: ~${article.readingTime * 230} words`);
-    const context = page.context();
-    const imageResult = await downloadImages(article.bodyHtml, context);
+    const imageResult = await downloadImages(article.bodyHtml, imageClient);
     article.bodyHtml = imageResult.html;
     succeedSpinner(
       `Extracted: ${article.title} (${article.readingTime} min read, ${imageResult.totalDownloaded} images)`,
@@ -111,10 +146,12 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
       }
     }
 
-    if (options.keepBrowserOpen) {
-      await page.close();
-    } else {
-      await closeBrowser();
+    if (page) {
+      if (options.keepBrowserOpen) {
+        await page.close();
+      } else {
+        await closeBrowser();
+      }
     }
 
     printSummary({
@@ -130,9 +167,7 @@ export async function convert(url: string, options: ConvertOptions): Promise<voi
     });
   } catch (error: unknown) {
     stopSpinner();
-    if (!options.keepBrowserOpen) {
-      await closeBrowser();
-    }
+    await closeBrowser();
     throw error;
   }
 }

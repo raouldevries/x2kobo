@@ -304,10 +304,48 @@ export function validateExtractedContent(article: ArticleData): void {
   }
 }
 
+function extractGitHubRichText(html: string): string | null {
+  const dom = quietJsdom(html);
+  const scripts = dom.window.document.querySelectorAll("script");
+  for (const script of scripts) {
+    const text = script.textContent;
+    if (!text || !text.includes('"richText"')) continue;
+    try {
+      const json = JSON.parse(text) as {
+        payload?: { codeViewBlobRoute?: { richText?: string } };
+      };
+      const richText = json.payload?.codeViewBlobRoute?.richText;
+      if (richText && richText.length > 100) return richText;
+    } catch {
+      // Not valid JSON, skip
+    }
+  }
+  return null;
+}
+
 export function extractGenericArticle(html: string, url: string, pageTitle: string): ArticleData {
   const { title: extractedTitle, author, handle, publishDate } = extractGenericMetadata(html, url);
 
-  let bodyHtml = extractWithReadability(html, url, { skipDraftJs: true });
+  // GitHub: extract rendered markdown from JSON payload
+  let bodyHtml: string | null = null;
+  let githubTitle: string | null = null;
+  try {
+    const hostname = new URL(url).hostname;
+    if (hostname === "github.com" || hostname.endsWith(".github.com")) {
+      bodyHtml = extractGitHubRichText(html);
+      if (bodyHtml) {
+        // Extract title from first <h1> in the rendered markdown
+        const titleDom = quietJsdom(bodyHtml);
+        githubTitle = titleDom.window.document.querySelector("h1")?.textContent?.trim() ?? null;
+      }
+    }
+  } catch {
+    // Invalid URL, skip GitHub check
+  }
+
+  if (!bodyHtml) {
+    bodyHtml = extractWithReadability(html, url, { skipDraftJs: true });
+  }
   if (!bodyHtml || bodyHtml.trim().length < 100) {
     // Fallback chain: <article> → <main> → <body>
     const dom = quietJsdom(html, { url });
@@ -323,7 +361,7 @@ export function extractGenericArticle(html: string, url: string, pageTitle: stri
   const readingTime = calculateReadingTime(bodyHtml);
 
   return {
-    title: extractedTitle || pageTitle,
+    title: githubTitle || extractedTitle || pageTitle,
     author,
     handle,
     publishDate,

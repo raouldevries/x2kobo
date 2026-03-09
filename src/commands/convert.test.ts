@@ -12,6 +12,14 @@ vi.mock("../extractor/article.js", () => ({
   loadArticle: vi.fn().mockResolvedValue(mockPage),
 }));
 
+vi.mock("../extractor/fetch.js", () => ({
+  fetchArticle: vi.fn().mockResolvedValue({
+    html: "<html><body><p>Fetched content</p></body></html>",
+    url: "https://example.com/article",
+    title: "Fetched Article",
+  }),
+}));
+
 vi.mock("../extractor/metadata.js", () => ({
   extractArticle: vi.fn().mockReturnValue({
     title: "Test Article",

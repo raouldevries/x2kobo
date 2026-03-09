@@ -380,6 +380,38 @@ describe("Draft.js preprocessing", () => {
 </html>
 `;
 
+  it("should extract GitHub richText from JSON payload", () => {
+    const richTextContent = `<article class="markdown-body"><h1>My GitHub Guide</h1><p>${"This is a test paragraph with enough words. ".repeat(20)}</p></article>`;
+    const githubHtml = `<!DOCTYPE html><html><head><title>repo/file.md at main · user/repo · GitHub</title>
+<meta property="og:site_name" content="GitHub" />
+</head><body>
+<script type="application/json" data-target="react-app.embeddedData">${JSON.stringify({
+      payload: {
+        codeViewBlobRoute: {
+          richText: richTextContent,
+        },
+      },
+    })}</script>
+</body></html>`;
+    const result = extractGenericArticle(
+      githubHtml,
+      "https://github.com/user/repo/blob/main/file.md",
+      "repo/file.md at main · user/repo · GitHub",
+    );
+    expect(result.title).toBe("My GitHub Guide");
+    expect(result.bodyHtml).toContain("This is a test paragraph");
+    expect(result.readingTime).toBeGreaterThan(0);
+  });
+
+  it("should fall back to Readability for non-GitHub URLs", () => {
+    const html = `<!DOCTYPE html><html><head><title>Blog Post</title>
+<meta property="og:title" content="Blog Post" />
+</head><body><article><p>${"Normal blog content here. ".repeat(20)}</p></article></body></html>`;
+    const result = extractGenericArticle(html, "https://example.com/blog", "Blog Post");
+    expect(result.title).toBe("Blog Post");
+    expect(result.bodyHtml).toContain("Normal blog content");
+  });
+
   it("should skip Draft.js preprocessing for generic URLs", () => {
     const result = extractGenericArticle(
       MOCK_DRAFTJS_HTML,
